@@ -53,14 +53,31 @@ prepost=categorical(dfraw.prepost);
 treat=categorical(dfraw.treat);
 maxtime=cellfun(@max, dfraw.time);
 meanrating=nanmean(dfraw.ratingfull,2);
+aucrating=cellfun(@(x,y) trapz(x,y),dfraw.time,dfraw.rating);
 meanratingbaseline=meanrating;
 %meanratingbaseline(prepost==2)=meanrating(prepost==1);
-df=table(subID,prepost,treat,maxtime,meanrating);
+df=table(subID,prepost,treat,maxtime,meanrating,aucrating);
 
-fitlme(df,'meanrating~prepost*treat+(1+prepost|subID)','CheckHessian',1)
+fitlme(df,'aucrating~prepost*treat+(1+prepost|subID)','CheckHessian',1)
 
-h=histogram(df.meanrating(df.treat=='0'&prepost=='1'));
-h.FaceColor=[1 0 0];
+pre0=nanmean(df.aucrating(df.prepost=='1'&df.treat=='0'));
+pre1=nanmean(df.aucrating(df.prepost=='1'&df.treat=='1'));
+pre2=nanmean(df.aucrating(df.prepost=='1'&df.treat=='2'));
+post0=nanmean(df.aucrating(df.prepost=='2'&df.treat=='0'));
+post1=nanmean(df.aucrating(df.prepost=='2'&df.treat=='1'));
+post2=nanmean(df.aucrating(df.prepost=='2'&df.treat=='2'));
+
+CIpre0=nanstd(df.aucrating(df.prepost=='1'&df.treat=='0'))/(1.96*sqrt(length(df.aucrating(df.prepost=='1'&df.treat=='0')-1)));
+CIpre1=nanstd(df.aucrating(df.prepost=='1'&df.treat=='1'))/(1.96*sqrt(length(df.aucrating(df.prepost=='1'&df.treat=='1')-1)));
+CIpre2=nanstd(df.aucrating(df.prepost=='1'&df.treat=='2'))/(1.96*sqrt(length(df.aucrating(df.prepost=='1'&df.treat=='2')-1)));
+CIpost0=nanstd(df.aucrating(df.prepost=='2'&df.treat=='0'))/(1.96*sqrt(length(df.aucrating(df.prepost=='2'&df.treat=='0')-1)));
+CIpost1=nanstd(df.aucrating(df.prepost=='2'&df.treat=='1'))/(1.96*sqrt(length(df.aucrating(df.prepost=='2'&df.treat=='1')-1)));
+CIpost2=nanstd(df.aucrating(df.prepost=='2'&df.treat=='2'))/(1.96*sqrt(length(df.aucrating(df.prepost=='2'&df.treat=='2')-1)));
+
 hold on
-histogram(df.meanrating(df.treat=='0'&prepost=='2'));
+errorbar([pre0,post0],[CIpre0,CIpost0],'Color','black')
+errorbar([pre1,post1],[CIpre1,CIpost1],'Color','green')
+errorbar([pre2,post2],[CIpre2,CIpost2],'Color','blue')
 hold off
+
+axis([0,3,min(df.aucrating),max(df.aucrating)])
