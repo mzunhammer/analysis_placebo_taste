@@ -1,44 +1,133 @@
 clear
 
-load dfraw.mat
-%% Create long df from raw imports
-subject_no=categorical(cellfun(@str2num,dfraw.subIDs));
-
-prepost=categorical(dfraw.prepost);
-treat=categorical(dfraw.treat);
-maxtime=cellfun(@max, dfraw.time);
-
-%For AUC and Mean rating, the mean has to be taken across the maximum time interval(3
-%min) with max rating (100) imputed instead of NaN for subjects that aborted testing.
-%ACHTUNG: ratingfull fills with NaNs ratingfull100 with max-ratings!!
-meanrating=cellfun(@nanmean,dfraw.rating);
-aucrating=cellfun(@(x,y) trapz(x,y),dfraw.time,dfraw.rating);
-aucrating100=trapz(dfraw.ratingfull100,2); % same as meanrating100=mean(dfraw.ratingfull100,2);
-max_aucrating100=length(dfraw.ratingfull100)*100;
-aucrating100_perc=aucrating100/max_aucrating100;
-
-meanratingbaseline=meanrating;
-
-df=table(subject_no,...
-    prepost,...
-    treat,...
-    maxtime,...
-    meanrating,...
-    aucrating100_perc);
-
-%% Create wide df with difference values
-AUC_pre=df(:,df.prepost=='1');
-AUC_post=df(:,df.prepost=='2');
-
-crf.subject_no=categorical(crf.subject_no);
-df=join(df,crf);
+load df.mat
 
 
-dfs=crf;
+%% Basic sample descriptives
+disp(['Age median: ',...
+    num2str(median(dfw.age))])
+
+disp(['Age range: ',...
+    num2str(min(dfw.age)),...
+    ' bis ',...
+    num2str(max(dfw.age))])
+
+waiting_time=dfw.time_second_rating-dfw.time_drug_administration
+disp(['Mean[min,max] waiting time after drug administration, before post-treatement CPT: ',...
+    num2str(nanmean(waiting_time)),...
+    ' [',...
+    num2str(min(waiting_time))
+    '; min',...
+    num2str(min(waiting_time))],...
+    '] min')
+%% Exclude excluded and outlier
+excluded=dfw.subject_no(dfw.exclusion==1|dfw.aucrating_perc_pre<5)
+
+dfl_c=dfl;
+dfw_c=dfw;
+
+dfl_c(ismember(dfl.subject_no,excluded),:)=[];
+dfw_c(ismember(dfw.subject_no,excluded),:)=[];
 
 
+%%
+dfw.taste_intensity(dfw.treat=='0')
+mean(dfw.taste_intensity(dfw.treat=='1'))
+mean(dfw.taste_intensity(dfw.treat=='2'))
 
-%% Display ALL curves with mean curve
+std(dfw.taste_intensity(dfw.treat=='1'))
+std(dfw.taste_intensity(dfw.treat=='2'))
+
+mean(dfw.taste_valence(dfw.treat=='1'))
+mean(dfw.taste_valence(dfw.treat=='2'))
+
+std(dfw.taste_valence(dfw.treat=='1'))
+std(dfw.taste_valence(dfw.treat=='2'))
+%% Explore all data
+
+for i=1:width(dfw_c)
+    figure
+    if isnumeric(dfw_c{:,i})
+    %histogram(dfw_c{:,i},round(height(dfw_c)/5))
+    elseif iscategorical(dfw_c{:,i})
+    histogram(dfw_c{:,i})
+    end
+    title(dfw_c.Properties.VariableNames(i))
+end
+
+% Peculiarities exploration
+
+% Make all categoricals categorical!
+% On what scale is time measured?
+
+% ? A there is one very low (<10bpm) post_heart_rate_2
+% ? A there is one very low (<40bpm) pre_heart_rate_2
+
+% ? skin_temperature_2 is ridiculously low for many participants
+% ? A there is one very low (<30bpm) ppst_diast_rr_1 and one very high >120
+
+% ? A there is one very low (<30bpm) pre_syst_rr_2
+% ? A there is one very low (<30bpm) pre_diast_rr_2
+% ? A there is one very low (<.25bpm) time second rating
+
+% - There is one guy with very high (>20) alcohol consumption
+%% General linear model: main result
+AUC_notaste=dfw.AUC_diff(dfw.treat=='1');
+AUC_taste=dfw.AUC_diff(dfw.treat=='2');
+
+n1=length(AUC_notaste);
+n2=length(AUC_taste);
+df1=n1-1;
+df2=n2-1;
+
+[h,p,ci,stats] =ttest2(AUC_notaste,AUC_taste);
+   
+effect=mean(AUC_notaste)-mean(AUC_taste);
+SEeffect=sqrt((df1*std(AUC_notaste)^2+df2*std(AUC_taste)^2)/(df1+df2));
+
+bayesfactor(effect,SEeffect,0,[0,5,2])
+   
+%Simple one-way ANOVA of differences between groups
+mdl1=fitglm(dfw_c,'AUC_diff~treat')
+
+[p,tbl,stats] = anova1(dfw_c.AUC_diff,dfw_c.treat);
+[c,m,h,gnames] =multcompare(stats,'CType','lsd');
+
+sprintf('Effect of Placebo-NoTaste vs NoTreatment: %0.2f 95%%CI [%0.2f; %0.2f]', c(1,4),c(1,3),c(1,5))
+sprintf('Effect of Placebo-Bitter vs NoTreatment: %0.2f 95%%CI [%0.2f; %0.2f]', c(2,4),c(2,3),c(2,5))
+sprintf('Effect of Placebo-Bitter vs Placebo-NoTaste: %0.2f 95%%CI [%0.2f; %0.2f]', c(3,4),c(3,3),c(3,5))
+%% Main results AUC
+
+% Plot pre & post
+pre0=nanmean(dfw_c.aucrating_perc_pre(dfw_c.treat=='0'));
+pre1=nanmean(dfw_c.aucrating_perc_pre(dfw_c.treat=='1'));
+pre2=nanmean(dfw_c.aucrating_perc_pre(dfw_c.treat=='2'));
+post0=nanmean(dfw_c.aucrating_perc_post(dfw_c.treat=='0'));
+post1=nanmean(dfw_c.aucrating_perc_post(dfw_c.treat=='1'));
+post2=nanmean(dfw_c.aucrating_perc_post(dfw_c.treat=='2'));
+
+SDpre0=nanstd(dfw_c.aucrating_perc_pre(dfw_c.treat=='0'));
+SDpre1=nanstd(dfw_c.aucrating_perc_pre(dfw_c.treat=='1'));
+SDpre2=nanstd(dfw_c.aucrating_perc_pre(dfw_c.treat=='2'));
+SDpost0=nanstd(dfw_c.aucrating_perc_post(dfw_c.treat=='0'));
+SDpost1=nanstd(dfw_c.aucrating_perc_post(dfw_c.treat=='1'));
+SDpost2=nanstd(dfw_c.aucrating_perc_post(dfw_c.treat=='2'));
+
+figure
+hold on
+errorbar([-0.1,0.9],[pre0,post0],[SDpre0,SDpost0],'Color','black')
+errorbar([0,1],[pre1,post1],[SDpre1,SDpost1],'Color','green')
+errorbar([0.1,1.1],[pre2,post2],[SDpre2,SDpost2],'Color','blue')
+hold off
+
+% Plot post-pre
+figure(1)
+boxplot(dfw.AUC_diff,dfw.treat)
+figure(2)
+boxplot(dfw_c.AUC_diff,dfw_c.treat)
+
+ttest2()
+%% Plot ALL curves with mean curve
 figure
 hold on
 for i=1:length(dfraw.subIDs)
@@ -87,29 +176,6 @@ end
 lme=fitlme(df,'aucrating100_perc~prepost*treat+(1+prepost|subID)','CheckHessian',1)
 anova(lme)
 
-pre_post_group0=df.aucrating100_perc(df.prepost=='2'&df.treat=='0')-df.aucrating100_perc(df.prepost=='1'&df.treat=='0')
-pre_post_group1=df.aucrating100_perc(df.prepost=='2'&df.treat=='1')-df.aucrating100_perc(df.prepost=='1'&df.treat=='1')
-pre_post_group2=df.aucrating100_perc(df.prepost=='2'&df.treat=='2')-df.aucrating100_perc(df.prepost=='1'&df.treat=='2')
 
-pre0=nanmean(df.aucrating100_perc(df.prepost=='1'&df.treat=='0'));
-pre1=nanmean(df.aucrating100_perc(df.prepost=='1'&df.treat=='1'));
-pre2=nanmean(df.aucrating100_perc(df.prepost=='1'&df.treat=='2'));
-post0=nanmean(df.aucrating100_perc(df.prepost=='2'&df.treat=='0'));
-post1=nanmean(df.aucrating100_perc(df.prepost=='2'&df.treat=='1'));
-post2=nanmean(df.aucrating100_perc(df.prepost=='2'&df.treat=='2'));
-
-CIpre0=nanstd(df.aucrating100_perc(df.prepost=='1'&df.treat=='0'))/(1.96*sqrt(length(df.aucrating100_perc(df.prepost=='1'&df.treat=='0')-1)));
-CIpre1=nanstd(df.aucrating100_perc(df.prepost=='1'&df.treat=='1'))/(1.96*sqrt(length(df.aucrating100_perc(df.prepost=='1'&df.treat=='1')-1)));
-CIpre2=nanstd(df.aucrating100_perc(df.prepost=='1'&df.treat=='2'))/(1.96*sqrt(length(df.aucrating100_perc(df.prepost=='1'&df.treat=='2')-1)));
-CIpost0=nanstd(df.aucrating100_perc(df.prepost=='2'&df.treat=='0'))/(1.96*sqrt(length(df.aucrating100_perc(df.prepost=='2'&df.treat=='0')-1)));
-CIpost1=nanstd(df.aucrating100_perc(df.prepost=='2'&df.treat=='1'))/(1.96*sqrt(length(df.aucrating100_perc(df.prepost=='2'&df.treat=='1')-1)));
-CIpost2=nanstd(df.aucrating100_perc(df.prepost=='2'&df.treat=='2'))/(1.96*sqrt(length(df.aucrating100_perc(df.prepost=='2'&df.treat=='2')-1)));
-
-figure
-hold on
-errorbar([-0.1,0.9],[pre0,post0],[CIpre0,CIpost0],'Color','black')
-errorbar([0,1],[pre1,post1],[CIpre1,CIpost1],'Color','green')
-errorbar([0.1,1.1],[pre2,post2],[CIpre2,CIpost2],'Color','blue')
-hold off
 
 axis([-0.5,1.5,min(df.aucrating100_perc),max(df.aucrating100_perc)])
