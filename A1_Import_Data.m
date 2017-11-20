@@ -13,9 +13,12 @@ dfraw.subIDs=cellfun(@(x) x{1}{1},fnameprts,'UniformOutput',0);
 dfraw.sex=cellfun(@(x) x{1}{2},fnameprts,'UniformOutput',0);
 dfraw.prepost=cellfun(@(x) str2num(x{1}{3}),fnameprts,'UniformOutput',0);
 dfraw.prepost=[dfraw.prepost{:}]';
-dfraw.datetime=cellfun(@(x) datetime(x{1}{4},'InputFormat','ddMMyy_HHmm'),fnameprts,'UniformOutput',0);
-dfraw.datetime=[dfraw.datetime{:}]';
-
+dfraw.datetime_CPT_end=cellfun(@(x) datetime(x{1}{4},'InputFormat','ddMMyy_HHmm'),fnameprts,'UniformOutput',0);
+dfraw.datetime_CPT_end=[dfraw.datetime_CPT_end{:}]';
+%Unfortunately no exact daytime was saved in rating-results.
+%As a proxy, file-creation time was extracted and is used
+load /Users/matthiaszunhammer/Dropbox/Gerrit/data_placebo_taste/exact_rating_end_times.mat
+dfraw.datetime_CPT_filetime=exacttimes;
 % Get data from files
 for i=1:length(fnames)
     % To load all
@@ -23,6 +26,18 @@ for i=1:length(fnames)
     a=load(fullfile(protfolder,fnames{i}));
     dfraw.rating{i,1}=a.Results.Rating;
     dfraw.time{i,1}=a.Results.Time;
+    
+    if ~isempty(a.Results.ratingTreatExpect)
+        dfraw.treat_expect(i,1)=a.Results.ratingTreatExpect;
+        dfraw.cursorini_treat_expect(i,1)=a.Results.IniCursorPosTreatExpect;
+        dfraw.ratingdur_treat_expect(i,1)=a.Results.ratingDurTreatExpect;
+    else
+        dfraw.treat_expect(i,1)=NaN;
+        dfraw.cursorini_treat_expect(i,1)=NaN;
+        dfraw.ratingdur_treat_expect(i,1)=NaN;
+    end
+
+
 end
 
 % Get maximum matrix size for ratings
@@ -64,8 +79,8 @@ fnames2=[fnames2{:}]';
 fnameprts=regexp(fnames2,'^(\d\d\d)_(\w)_\w_(\d\d\d\d\d\d_\d\d\d\d).mat','tokens');
 dfraw2.subIDs=cellfun(@(x) x{1}{1},fnameprts,'UniformOutput',0);
 dfraw2.sex=cellfun(@(x) x{1}{2},fnameprts,'UniformOutput',0);
-dfraw2.datetime=cellfun(@(x) datetime(x{1}{3},'InputFormat','ddMMyy_HHmm'),fnameprts,'UniformOutput',0);
-dfraw2.datetime=[dfraw2.datetime{:}]';
+dfraw2.datetime_VAS_end=cellfun(@(x) datetime(x{1}{3},'InputFormat','ddMMyy_HHmm'),fnameprts,'UniformOutput',0);
+dfraw2.datetime_VAS_end=[dfraw2.datetime_VAS_end{:}]';
 
 % Get data from files
 for i=1:length(fnames2)
@@ -103,10 +118,6 @@ crf=readtable(crfdata_path,...
           'sheet',2,...
           'ReadVariableNames',true);
 
-      
-      
-     
-      
 %% Create long df (dfl) from raw imports (pain ratings)
 subject_no=categorical(cellfun(@str2num,dfraw.subIDs));
 
@@ -124,20 +135,32 @@ max_aucrating100=length(dfraw.ratingfull100)*100;
 aucrating_perc=aucrating100/max_aucrating100*100;
 
 meanratingbaseline=meanrating;
+datetime_CPT_end=dfraw.datetime_CPT_end;
+datetime_CPT_filetime=dfraw.datetime_CPT_filetime;
+
+treat_expect=dfraw.treat_expect;
+cursorini_treat_expect=dfraw.cursorini_treat_expect;
+ratingdur_treat_expect=dfraw.ratingdur_treat_expect;
 
 dfl=table(subject_no,...
     prepost,...
     treat,...
     maxtime,...
     meanrating,...
-    aucrating_perc);
+    aucrating_perc,...
+    datetime_CPT_end,...
+    datetime_CPT_filetime,...
+    treat_expect,...
+    cursorini_treat_expect,...
+    ratingdur_treat_expect);
 
+% Resample time-courses to 180 seconds and as cells
+dfl.rating180=num2cell(resample(dfraw.ratingfull100',1,10)',2);
 %% Create long df (dfl) from raw imports (post-treatment ratings)
 subject_no=categorical(cellfun(@str2num,dfraw2.subIDs));
 
 prepost=categorical(repmat(2,size(subject_no)));
 
-post_t_q_time=dfraw2.datetime; % Start of post-treatment on-screen questions
 treat_efficacy=dfraw2.treat_efficacy;
 taste_intensity=dfraw2.taste_intensity;
 taste_valence=dfraw2.taste_valence;
@@ -149,10 +172,11 @@ cursorini_taste_valence=dfraw2.cursorini_taste_valence;
 ratingdur_treat_efficacy=dfraw2.ratingdur_treat_efficacy;
 ratingdur_taste_intensity=dfraw2.ratingdur_taste_intensity;
 ratingdur_taste_valence=dfraw2.ratingdur_taste_valence;
-    
+
+datetime_VAS_end=dfraw2.datetime_VAS_end;
+
 dfl2=table(subject_no,...
     prepost,...
-    post_t_q_time,...
     treat_efficacy,...
     taste_intensity,...
     taste_valence,...
@@ -161,26 +185,21 @@ dfl2=table(subject_no,...
     cursorini_taste_valence,...
     ratingdur_treat_efficacy,...
     ratingdur_taste_intensity,...
-    ratingdur_taste_valence);
+    ratingdur_taste_valence,...
+    datetime_VAS_end);
 
+dfl2.taste_valence=dfl2.taste_valence-50; % 101pt VAS with "neutral" at 50 >> to obtain intuitive positive and negative values
 
-%% Create wide df with difference values
-pre=dfl(dfl.prepost=='1',:);
-post=dfl(dfl.prepost=='2',:);
-dfw=join(pre,post,'Keys','subject_no','KeepOneCopy',{'prepost','treat'});
-dfw.prepost=[];%drop prepost
-
-%% Join both dfl and dfw with crf data
+%% Join dfl with crf data
 crf.subject_no=categorical(crf.subject_no);
+crf.handedness=categorical(crf.handedness);
+crf.bmi=crf.body_weight_in_kg./(crf.height_in_cm/100).^2;
+
 dfl=join(dfl,crf);
 dfl=outerjoin(dfl,dfl2);
+dfl.Properties.VariableNames{'subject_no_dfl'} = 'subject_no';
+dfl.Properties.VariableNames{'prepost_dfl'} = 'prepost';
 dfl.subject_no_dfl2=[];
 dfl.prepost_dfl2=[];
 
-dfw=join(dfw,crf);
-dfw=outerjoin(dfw,dfl2);
-dfw.subject_no_dfl2=[];
-
-dfw.AUC_diff=dfw.aucrating_perc_post-dfw.aucrating_perc_pre;
-
-save df.mat dfl dfw dfraw
+save df.mat dfl dfraw crf
