@@ -56,17 +56,21 @@ for i=1:length(dfraw.rating)
     dfraw.timefull(i,1:length(dfraw.time{i}))=dfraw.time{i};
 end
 
-% Clip end of matrices by 4 epochs to account for minor inequalities in the number of
-% sampling intervals/3 minutes
+%Clip end of matrices by 4 epochs to account for minor inequalities in the number of
+%sampling intervals/3 minutes
 dfraw.ratingfull=dfraw.ratingfull(:,1:end-4);
 dfraw.timefull=dfraw.timefull(:,1:end-4);
+
+%Clip end of matrices by 4 epochs to account for minor inequalities in the number of
+%sampling intervals/3 minutes
+dfraw.ratingfull(:,1)=0; % sometimes the very first epoch recorded a non-null signal that immediately returned to 0 (the actual start position of all measurements)
 
 % Create a vector of full rating data where NaNs are filled with 100
 dfraw.ratingfull100=dfraw.ratingfull;
 dfraw.ratingfull100(isnan(dfraw.ratingfull))=100;
 
 % Summarize time in s across measurement timepoints
-dfraw.timemean=nanmean(dfraw.timefull)
+dfraw.timemean=nanmean(dfraw.timefull);
 
 %% Read post-treatment rating files
 protfolder2='../data_placebo_taste/post_treatment_on_screen_questions/';
@@ -155,7 +159,26 @@ dfl=table(subject_no,...
     ratingdur_treat_expect);
 
 % Resample time-courses to 180 seconds and as cells
-dfl.rating180=num2cell(resample(dfraw.ratingfull100',1,10)',2);
+% dfl.rating180=num2cell(resample(dfraw.ratingfull100',1,10)',2);
+dfl.rating180=cell(size(dfl.subject_no));
+for i = 1:length(dfl.subject_no)
+    x=dfraw.ratingfull100(i,:);
+    t=dfraw.timefull(i,:);
+    
+    % before resampling time-series have to be de-trended otherwise matlab
+    % will introduce end-point effects...
+    % see: https://de.mathworks.com/help/signal/examples/resampling-nonuniformly-sampled-signals.html
+    i_notnan=intersect(find(~isnan(x)),find(~isnan(t))); %to get last non-nan entry in both HR and time-series
+    b(1) = (x(i_notnan(end))-x(1)) / (t(i_notnan(end))-t(1));
+    b(2) = x(1);
+    % detrend the signal
+    xdetrend = x - polyval(b,t);
+    r=NaN(1,180);
+    [ydetrend,ty]=resample(xdetrend,t,max_len_time/1800);
+    
+    r(1:length(ydetrend))=ydetrend+ polyval(b,ty);
+    dfl.rating180{i}=r';
+end
 %% Create long df (dfl) from raw imports (post-treatment ratings)
 subject_no=categorical(cellfun(@str2num,dfraw2.subIDs));
 
