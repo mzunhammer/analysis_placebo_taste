@@ -270,8 +270,12 @@ for i=1:height(dfl)
         curr_HR_post(1:length(curr_HR_post_raw))=curr_HR_post_raw;
         dfl.CPT_HR_post{i}=curr_HR_pre;
         
+        % Summarize pre,main,post periods
         dfl.CPT_HR_mean_pre(i)=nanmean(dfl.CPT_HR_pre{i});
-        dfl.CPT_HR_perc_BL{i}=(dfl.CPT_HR{i}./dfl.CPT_HR_mean_pre(i))'.*100;
+        dfl.CPT_HR_mean(i)=nanmean(dfl.CPT_HR{i});
+        dfl.CPT_HR_mean(dfl.CPT_HR_mean==0)=NaN;
+        dfl.CPT_HR_mean_post(i)=nanmean(dfl.CPT_HR_post{i});
+        dfl.CPT_HR_perc_BL{i}=(dfl.CPT_HR{i}./dfl.CPT_HR_mean_pre(i)).*100;
         dfl.CPT_HR_max(i)=max(dfl.CPT_HR{i})';
     end
     end

@@ -25,6 +25,11 @@ dfw.datetime_VAS_end_pre=[];
 dfw.AUC_diff=dfw.aucrating_perc_post-dfw.aucrating_perc_pre;
 dfw.maxtime_diff=dfw.maxtime_post-dfw.maxtime_pre;
 
+dfw.CPT_HR_mean_diff=dfw.CPT_HR_mean_post-dfw.CPT_HR_mean_pre;
+dfw.CPT_HR_max_diff=dfw.CPT_HR_max_post-dfw.CPT_HR_max_pre;
+dfw.CPT_HR_max_perc_BL_diff=dfw.CPT_HR_max_perc_BL_post-dfw.CPT_HR_max_perc_BL_pre;
+
+
 % Make time more readable in wide format
 timevars={'arrival_time',...
           'time_instruction',...
