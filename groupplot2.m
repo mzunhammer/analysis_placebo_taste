@@ -1,5 +1,6 @@
 function [h,h_means]=groupplot2(x1,x2,y)
 %figure
+bootsamples=10000;
 % Styles
 xscale=0.5;
 pointsize=15;
@@ -27,7 +28,7 @@ for i=1:k1
         curr_y(:,j)=y((x1 == groups1(i)) & (x2 == groups2(j)));
         curr_y_mean(j) = nanmean(curr_y(:,j));
         curr_y_sd(j) = std(curr_y(:,j));
-        curr_y_CI= bootci(1000,{@nanmean,curr_y(:,j)},'type','cper')-curr_y_mean(j);
+        curr_y_CI= bootci(bootsamples,{@nanmean,curr_y(:,j)},'type','cper')-curr_y_mean(j);
         % Appearance        
         % Plots
         %plot(xpos2(j),curr_y(:,j),...

@@ -4,11 +4,11 @@ clear
 protfolder='../data_placebo_taste/cold_pressor/';
 dir_protfolder=dir(protfolder);
 fnames={dir_protfolder.name};
-fnames=regexp(fnames,'^\d\d\d_\w_\w_\d_\d\d\d\d\d\d_\d\d\d\d.mat','match');
+fnames=regexp(fnames,'^\d\d\d_\w_\w_\d_\d\d\d\d\d\d_\d+.mat','match');
 fnames=[fnames{:}]';
 
 % Get info from filename
-fnameprts=regexp(fnames,'^(\d\d\d)_(\w)_\w_(\d)_(\d\d\d\d\d\d_\d\d\d\d).mat','tokens');
+fnameprts=regexp(fnames,'^(\d\d\d)_(\w)_\w_(\d)_(\d\d\d\d\d\d_\d+).mat','tokens');
 dfraw.subIDs=cellfun(@(x) x{1}{1},fnameprts,'UniformOutput',0);
 dfraw.sex=cellfun(@(x) x{1}{2},fnameprts,'UniformOutput',0);
 dfraw.prepost=cellfun(@(x) str2num(x{1}{3}),fnameprts,'UniformOutput',0);
@@ -76,11 +76,11 @@ dfraw.timemean=nanmean(dfraw.timefull);
 protfolder2='../data_placebo_taste/post_treatment_on_screen_questions/';
 dir_protfolder2=dir(protfolder2);
 fnames2={dir_protfolder2.name};
-fnames2=regexp(fnames2,'^\d\d\d_\w_\w_\d\d\d\d\d\d_\d\d\d\d.mat','match');
+fnames2=regexp(fnames2,'^\d\d\d_\w_\w_\d\d\d\d\d\d_\d+.mat','match');
 fnames2=[fnames2{:}]';
 
 % Get info from filename
-fnameprts=regexp(fnames2,'^(\d\d\d)_(\w)_\w_(\d\d\d\d\d\d_\d\d\d\d).mat','tokens');
+fnameprts=regexp(fnames2,'^(\d\d\d)_(\w)_\w_(\d\d\d\d\d\d_\d+).mat','tokens');
 dfraw2.subIDs=cellfun(@(x) x{1}{1},fnameprts,'UniformOutput',0);
 dfraw2.sex=cellfun(@(x) x{1}{2},fnameprts,'UniformOutput',0);
 dfraw2.datetime_VAS_end=cellfun(@(x) datetime(x{1}{3},'InputFormat','ddMMyy_HHmm'),fnameprts,'UniformOutput',0);
@@ -104,7 +104,7 @@ end
 
 
 %% Read treatment group allocation from randomization, add to raw df
-randomlist_path='../data_placebo_taste/Randomisierung_Gerrit_Geschmacksstudie_Final.xlsx';
+randomlist_path='../data_placebo_taste/Randomisierung_Gerrit_und_Max_Geschmacksstudie_Final.xlsx';
 [ndata, ~, ~] = xlsread(randomlist_path);
 xlsID=ndata(:,1);
 treat=ndata(:,2);
@@ -122,21 +122,59 @@ crf=readtable(crfdata_path,...
           'sheet',2,...
           'ReadVariableNames',true);
 
+%% Read side-effects data
+UAW_data_path='../data_placebo_taste/side_effects.xlsx';
+UAW=readtable(UAW_data_path,...
+          'sheet',2,...
+          'ReadVariableNames',true);
+UAW.sumUAW=sum(UAW{:,3:end},2);
+UAW.subject_no=categorical(UAW.subject_no);
+
 %% Create long df (dfl) from raw imports (pain ratings)
 subject_no=categorical(cellfun(@str2num,dfraw.subIDs));
 
 prepost=categorical(dfraw.prepost);
 treat=categorical(dfraw.treat);
-maxtime=cellfun(@max, dfraw.time);
+
+% Resample time-courses to 180 seconds and as cells
+% dfl.rating180=num2cell(resample(dfraw.ratingfull100',1,10)',2);
+rating180=cell(size(subject_no));
+rating180_full=cell(size(subject_no));
+for i = 1:length(subject_no)
+    x=dfraw.ratingfull100(i,:);
+    t=dfraw.timefull(i,:);
+    
+    % before resampling time-series have to be de-trended otherwise matlab
+    % will introduce end-point effects...
+    % see: https://de.mathworks.com/help/signal/examples/resampling-nonuniformly-sampled-signals.html
+    i_notnan=intersect(find(~isnan(x)),find(~isnan(t))); %to get last non-nan entry in both HR and time-series
+    b(1) = (x(i_notnan(end))-x(1)) / (t(i_notnan(end))-t(1));
+    b(2) = x(1);
+    % detrend the signal
+    xdetrend = x - polyval(b,t);
+    r_w_nan=NaN(1,180);
+    r_w_100=ones(1,180).*100;
+    [ydetrend,ty]=resample(xdetrend,t,max_len_time/1800);
+    r_w_nan(1:length(ydetrend))=ydetrend+ polyval(b,ty);
+    r_w_100(1:length(ydetrend))=ydetrend+ polyval(b,ty);
+    rating180{i}=r_w_nan';
+    rating180_full{i}=r_w_100';
+end
 
 %For AUC and Mean rating, the mean has to be taken across the maximum time interval(3
 %min) with max rating (100) imputed instead of NaN for subjects that aborted testing.
 %ACHTUNG: ratingfull fills with NaNs ratingfull100 with max-ratings!!
-meanrating=cellfun(@nanmean,dfraw.rating);
-aucrating=cellfun(@(x,y) trapz(x,y),dfraw.time,dfraw.rating);
-aucrating100=trapz(dfraw.ratingfull100,2); % same as meanrating100=mean(dfraw.ratingfull100,2);
-max_aucrating100=length(dfraw.ratingfull100)*100;
-aucrating_perc=aucrating100/max_aucrating100*100;
+maxtime=cellfun(@max, dfraw.time);
+meanrating=cellfun(@nanmean,rating180);
+
+aucrating_perc=cellfun(@nanmean,rating180_full); % same nansum(rating180_full)/max_aucrating100
+aucrating_perc90=cellfun(@(x) nanmean(x(90:end)),rating180_full); % same nansum(rating180_full)/max_aucrating100
+
+% Alternatively calculate from raw, non-re-sampled data
+%aucrating=cellfun(@(x,y) trapz(x,y),dfraw.time,dfraw.rating);
+%aucrating100=trapz(dfraw.ratingfull100,2); % same as meanrating100=mean(dfraw.ratingfull100,2);
+%max_aucrating100=length(dfraw.ratingfull100)*100;
+%aucrating_perc=aucrating100/max_aucrating100*100;
 
 meanratingbaseline=meanrating;
 datetime_CPT_end=dfraw.datetime_CPT_end;
@@ -150,35 +188,16 @@ dfl=table(subject_no,...
     prepost,...
     treat,...
     maxtime,...
+    rating180,...
+    rating180_full,...
     meanrating,...
     aucrating_perc,...
+    aucrating_perc90,...
     datetime_CPT_end,...
     datetime_CPT_filetime,...
     treat_expect,...
     cursorini_treat_expect,...
     ratingdur_treat_expect);
-
-% Resample time-courses to 180 seconds and as cells
-% dfl.rating180=num2cell(resample(dfraw.ratingfull100',1,10)',2);
-dfl.rating180=cell(size(dfl.subject_no));
-for i = 1:length(dfl.subject_no)
-    x=dfraw.ratingfull100(i,:);
-    t=dfraw.timefull(i,:);
-    
-    % before resampling time-series have to be de-trended otherwise matlab
-    % will introduce end-point effects...
-    % see: https://de.mathworks.com/help/signal/examples/resampling-nonuniformly-sampled-signals.html
-    i_notnan=intersect(find(~isnan(x)),find(~isnan(t))); %to get last non-nan entry in both HR and time-series
-    b(1) = (x(i_notnan(end))-x(1)) / (t(i_notnan(end))-t(1));
-    b(2) = x(1);
-    % detrend the signal
-    xdetrend = x - polyval(b,t);
-    r=NaN(1,180);
-    [ydetrend,ty]=resample(xdetrend,t,max_len_time/1800);
-    
-    r(1:length(ydetrend))=ydetrend+ polyval(b,ty);
-    dfl.rating180{i}=r';
-end
 %% Create long df (dfl) from raw imports (post-treatment ratings)
 subject_no=categorical(cellfun(@str2num,dfraw2.subIDs));
 
@@ -224,5 +243,33 @@ dfl.Properties.VariableNames{'subject_no_dfl'} = 'subject_no';
 dfl.Properties.VariableNames{'prepost_dfl'} = 'prepost';
 dfl.subject_no_dfl2=[];
 dfl.prepost_dfl2=[];
+
+% Blood pressure data were recorded before and after each CPT
+% have to be merged or will be present in duplicate form:
+dfl.SYS_before_CPT=NaN(height(dfl),1);
+dfl.SYS_after_CPT=NaN(height(dfl),1);
+dfl.DIA_before_CPT=NaN(height(dfl),1);
+dfl.DIA_after_CPT=NaN(height(dfl),1);
+
+dfl.SYS_before_CPT(dfl.prepost=='1')=dfl.SYS_before_pre_treat_CPT(dfl.prepost=='1');
+dfl.SYS_before_CPT(dfl.prepost=='2')=dfl.SYS_before_post_treat_CPT(dfl.prepost=='2');
+dfl.SYS_after_CPT(dfl.prepost=='1')=dfl.SYS_after_pre_treat_CPT(dfl.prepost=='1');
+dfl.SYS_after_CPT(dfl.prepost=='2')=dfl.SYS_after_post_treat_CPT(dfl.prepost=='2');
+dfl.DIA_before_CPT(dfl.prepost=='1')=dfl.DIA_before_pre_treat_CPT(dfl.prepost=='1');
+dfl.DIA_before_CPT(dfl.prepost=='2')=dfl.DIA_before_post_treat_CPT(dfl.prepost=='2');
+dfl.DIA_after_CPT(dfl.prepost=='1')=dfl.DIA_after_pre_treat_CPT(dfl.prepost=='1');
+dfl.DIA_after_CPT(dfl.prepost=='2')=dfl.DIA_after_post_treat_CPT(dfl.prepost=='2');
+
+dfl.SYS_before_pre_treat_CPT=[];
+dfl.SYS_after_pre_treat_CPT=[];
+dfl.SYS_before_post_treat_CPT=[];
+dfl.SYS_after_post_treat_CPT=[];
+dfl.DIA_before_pre_treat_CPT=[];
+dfl.DIA_after_pre_treat_CPT=[];
+dfl.DIA_before_post_treat_CPT=[];
+dfl.DIA_after_post_treat_CPT=[];
+%% Join dfl with UAW sumscore
+UAW_sum=UAW(:,{'subject_no','sumUAW'});
+dfl=join(dfl,UAW_sum,'Keys',{'subject_no'});
 
 save df.mat dfl dfraw crf
