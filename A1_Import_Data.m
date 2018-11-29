@@ -1,7 +1,7 @@
 clear
 
 %% Read cold_pressor rating files
-protfolder='../data_placebo_taste/cold_pressor/';
+protfolder='../data_placebo_taste/cold_pressor_combined/';
 dir_protfolder=dir(protfolder);
 fnames={dir_protfolder.name};
 fnames=regexp(fnames,'^\d\d\d_\w_\w_\d_\d\d\d\d\d\d_\d+.mat','match');
@@ -13,12 +13,19 @@ dfraw.subIDs=cellfun(@(x) x{1}{1},fnameprts,'UniformOutput',0);
 dfraw.sex=cellfun(@(x) x{1}{2},fnameprts,'UniformOutput',0);
 dfraw.prepost=cellfun(@(x) str2num(x{1}{3}),fnameprts,'UniformOutput',0);
 dfraw.prepost=[dfraw.prepost{:}]';
-dfraw.datetime_CPT_end=cellfun(@(x) datetime(x{1}{4},'InputFormat','ddMMyy_HHmm'),fnameprts,'UniformOutput',0);
-dfraw.datetime_CPT_end=[dfraw.datetime_CPT_end{:}]';
+dfraw.datetime_CPT_end=NaT(length(fnameprts),1);
+for i = 1:length(fnameprts)
+    try
+        dfraw.datetime_CPT_end(i)= datetime(fnameprts{i}{1}{4},'InputFormat','ddMMyy_HHmm');
+    catch
+        dfraw.datetime_CPT_end(i)= datetime(fnameprts{i}{1}{4},'InputFormat','ddMMyy_HHmmss');
+    end
+end
 %Unfortunately no exact daytime was saved in rating-results.
 %As a proxy, file-creation time was extracted and is used
 load /Users/matthiaszunhammer/Dropbox/Gerrit/data_placebo_taste/exact_rating_end_times.mat
-dfraw.datetime_CPT_filetime=exacttimes;
+dfraw.datetime_CPT_filetime=NaT(length(fnameprts),1);
+dfraw.datetime_CPT_filetime(1:length(exacttimes))=exacttimes;
 % Get data from files
 for i=1:length(fnames)
     % To load all
@@ -27,7 +34,7 @@ for i=1:length(fnames)
     dfraw.rating{i,1}=a.Results.Rating;
     dfraw.time{i,1}=a.Results.Time;
     
-    if ~isempty(a.Results.ratingTreatExpect)
+    if isfield(a.Results,'ratingTreatExpect')&&~isempty(a.Results.ratingTreatExpect)
         dfraw.treat_expect(i,1)=a.Results.ratingTreatExpect;
         dfraw.cursorini_treat_expect(i,1)=a.Results.IniCursorPosTreatExpect;
         dfraw.ratingdur_treat_expect(i,1)=a.Results.ratingDurTreatExpect;
@@ -37,7 +44,35 @@ for i=1:length(fnames)
         dfraw.ratingdur_treat_expect(i,1)=NaN;
     end
 
-
+    if isfield(a.Results,'ratingTreatEfficacy')&&~isempty(a.Results.ratingTreatEfficacy)
+        dfraw.treat_efficacy(i,1)=a.Results.ratingTreatEfficacy;
+        dfraw.cursorini_treat_efficacy(i,1)=a.Results.IniCursorPosTreatEfficacy;
+        dfraw.ratingdur_treat_efficacy(i,1)=a.Results.ratingDurTreatEfficacy;
+    else
+        dfraw.treat_efficacy(i,1)=NaN;
+        dfraw.cursorini_treat_efficacy(i,1)=NaN;
+        dfraw.ratingdur_treat_efficacy(i,1)=NaN;
+    end
+    
+    if  isfield(a.Results,'ratingTreatTasteVal')&&~isempty(a.Results.ratingTreatTasteVal)
+        dfraw.taste_valence(i,1)=a.Results.ratingTreatTasteVal;
+        dfraw.cursorini_taste_valence(i,1)=a.Results.IniCursorPosTreatTasteVal;
+        dfraw.ratingdur_taste_valence(i,1)=a.Results.ratingDurTreatTasteVal;
+    else
+        dfraw.taste_valence(i,1)=NaN;
+        dfraw.cursorini_taste_valence(i,1)=NaN;
+        dfraw.ratingdur_taste_valence(i,1)=NaN;
+    end
+    
+    if  isfield(a.Results,'ratingTreatTasteInt')&&~isempty(a.Results.ratingTreatTasteInt)
+        dfraw.taste_intensity(i,1)=a.Results.ratingTreatTasteInt;
+        dfraw.cursorini_taste_intensity(i,1)=a.Results.IniCursorPosTreatTasteInt;
+        dfraw.ratingdur_taste_intensity(i,1)=a.Results.ratingDurTreatTasteInt;
+    else
+        dfraw.taste_intensity(i,1)=NaN;
+        dfraw.cursorini_taste_intensity(i,1)=NaN;
+        dfraw.ratingdur_taste_intensity(i,1)=NaN;
+    end
 end
 
 % Get maximum matrix size for ratings
@@ -73,6 +108,8 @@ dfraw.ratingfull100(isnan(dfraw.ratingfull))=100;
 dfraw.timemean=nanmean(dfraw.timefull);
 
 %% Read post-treatment rating files
+% Note that from participant 139 on these ratings were saved in the same.
+% mat as the CPT ratings.
 protfolder2='../data_placebo_taste/post_treatment_on_screen_questions/';
 dir_protfolder2=dir(protfolder2);
 fnames2={dir_protfolder2.name};
@@ -108,7 +145,7 @@ randomlist_path='../data_placebo_taste/Randomisierung_Gerrit_und_Max_Geschmackss
 [ndata, ~, ~] = xlsread(randomlist_path);
 xlsID=ndata(:,1);
 treat=ndata(:,2);
-treat(isnan(treat))=-1; % No treatment, no taste, taste
+treat(isnan(treat))=-1; % 0:No treatment, 1: no taste, 2: bitter, 3: sweet
 treat=treat+1;
 
 for i=1:length(dfraw.subIDs)
@@ -117,17 +154,17 @@ for i=1:length(dfraw.subIDs)
 end
 
 %% Read demografic/crf/questionnaire data
-crfdata_path='../data_placebo_taste/case_report_forms.xlsx';
+crfdata_path='../data_placebo_taste/case_report_forms_combined.xlsx';
 crf=readtable(crfdata_path,...
           'sheet',2,...
           'ReadVariableNames',true);
 
 %% Read side-effects data
-UAW_data_path='../data_placebo_taste/side_effects.xlsx';
+UAW_data_path='../data_placebo_taste/side_effects_combined.xlsx';
 UAW=readtable(UAW_data_path,...
-          'sheet',2,...
+          'sheet',1,...
           'ReadVariableNames',true);
-UAW.sumUAW=sum(UAW{:,3:end},2);
+UAW.sumUAW=sum(UAW{:,5:end},2);
 UAW.subject_no=categorical(UAW.subject_no);
 
 %% Create long df (dfl) from raw imports (pain ratings)
@@ -141,22 +178,10 @@ treat=categorical(dfraw.treat);
 rating180=cell(size(subject_no));
 rating180_full=cell(size(subject_no));
 for i = 1:length(subject_no)
+    disp(i)
     x=dfraw.ratingfull100(i,:);
     t=dfraw.timefull(i,:);
-    
-    % before resampling time-series have to be de-trended otherwise matlab
-    % will introduce end-point effects...
-    % see: https://de.mathworks.com/help/signal/examples/resampling-nonuniformly-sampled-signals.html
-    i_notnan=intersect(find(~isnan(x)),find(~isnan(t))); %to get last non-nan entry in both HR and time-series
-    b(1) = (x(i_notnan(end))-x(1)) / (t(i_notnan(end))-t(1));
-    b(2) = x(1);
-    % detrend the signal
-    xdetrend = x - polyval(b,t);
-    r_w_nan=NaN(1,180);
-    r_w_100=ones(1,180).*100;
-    [ydetrend,ty]=resample(xdetrend,t,max_len_time/1800);
-    r_w_nan(1:length(ydetrend))=ydetrend+ polyval(b,ty);
-    r_w_100(1:length(ydetrend))=ydetrend+ polyval(b,ty);
+    [r_w_nan,r_w_100]=resample_CPT(x,t,180,1);
     rating180{i}=r_w_nan';
     rating180_full{i}=r_w_100';
 end
@@ -184,7 +209,22 @@ treat_expect=dfraw.treat_expect;
 cursorini_treat_expect=dfraw.cursorini_treat_expect;
 ratingdur_treat_expect=dfraw.ratingdur_treat_expect;
 
-dfl=table(subject_no,...
+% Note: Treat efficacy & taste ratings were saved in separate .mat files
+% for participants 1-138 and in the same file as post-treatment CPT
+% afterwards.
+treat_efficacy=dfraw.treat_efficacy;
+taste_intensity=dfraw.taste_intensity;
+taste_valence=dfraw.taste_valence;
+
+cursorini_treat_efficacy=dfraw.cursorini_treat_efficacy;
+cursorini_taste_intensity=dfraw.cursorini_taste_intensity;
+cursorini_taste_valence=dfraw.cursorini_taste_valence;
+
+ratingdur_treat_efficacy=dfraw.ratingdur_treat_efficacy;
+ratingdur_taste_intensity=dfraw.ratingdur_taste_intensity;
+ratingdur_taste_valence=dfraw.ratingdur_taste_valence;
+
+dfl1=table(subject_no,...
     prepost,...
     treat,...
     maxtime,...
@@ -197,7 +237,17 @@ dfl=table(subject_no,...
     datetime_CPT_filetime,...
     treat_expect,...
     cursorini_treat_expect,...
-    ratingdur_treat_expect);
+    ratingdur_treat_expect,...
+    treat_efficacy,...
+    taste_intensity,...
+    taste_valence,...
+    cursorini_treat_efficacy,...
+    cursorini_taste_intensity,...
+    cursorini_taste_valence,...
+    ratingdur_treat_efficacy,...
+    ratingdur_taste_intensity,...
+    ratingdur_taste_valence);
+
 %% Create long df (dfl) from raw imports (post-treatment ratings)
 subject_no=categorical(cellfun(@str2num,dfraw2.subIDs));
 
@@ -230,21 +280,41 @@ dfl2=table(subject_no,...
     ratingdur_taste_valence,...
     datetime_VAS_end);
 
-dfl2.taste_valence=dfl2.taste_valence-50; % 101pt VAS with "neutral" at 50 >> to obtain intuitive positive and negative values
-
 %% Join dfl with crf data
 crf.subject_no=categorical(crf.subject_no);
 crf.handedness=categorical(crf.handedness);
 crf.bmi=crf.body_weight_in_kg./(crf.height_in_cm/100).^2;
 
-dfl=join(dfl,crf);
-dfl=outerjoin(dfl,dfl2);
-dfl.Properties.VariableNames{'subject_no_dfl'} = 'subject_no';
-dfl.Properties.VariableNames{'prepost_dfl'} = 'prepost';
-dfl.subject_no_dfl2=[];
-dfl.prepost_dfl2=[];
+dfl=join(dfl1,crf);
 
-% Blood pressure data were recorded before and after each CPT
+%% Join in post-testing ratings from first experiment
+post_test_vars={'treat_efficacy'
+'taste_intensity'
+'taste_valence'
+'cursorini_treat_efficacy'
+'cursorini_taste_intensity'
+'cursorini_taste_valence'
+'ratingdur_treat_efficacy'
+'ratingdur_taste_intensity'
+'ratingdur_taste_valence'};
+
+dfl=outerjoin(dfl,dfl2,'key',{'subject_no','prepost'},...
+                       'Type','left',...
+                       'MergeKeys',true,...
+                       'RightVariables',post_test_vars);
+
+for i=1:length(post_test_vars)
+    a=dfl{:,[post_test_vars{i},'_dfl']};
+    b=dfl{:,[post_test_vars{i},'_dfl2']};
+    a(isnan(a))=b(isnan(a));
+    dfl(:,post_test_vars{i})=table(a);
+    dfl(:,[post_test_vars{i},'_dfl'])=[];
+    dfl(:,[post_test_vars{i},'_dfl2'])=[];
+end
+
+dfl.taste_valence=dfl.taste_valence-50; % 101pt VAS with "neutral" at 50 >> to obtain intuitive positive and negative values
+
+%% Blood pressure data were recorded before and after each CPT
 % have to be merged or will be present in duplicate form:
 dfl.SYS_before_CPT=NaN(height(dfl),1);
 dfl.SYS_after_CPT=NaN(height(dfl),1);
@@ -271,5 +341,22 @@ dfl.DIA_after_post_treat_CPT=[];
 %% Join dfl with UAW sumscore
 UAW_sum=UAW(:,{'subject_no','sumUAW'});
 dfl=join(dfl,UAW_sum,'Keys',{'subject_no'});
+
+%% Additional variables:
+% Add (sub-)study as a variable
+dfl.study=zeros(size(dfl.subject_no));
+dfl.study(double(dfl.subject_no)<=138)=1;
+dfl.study((double(dfl.subject_no)>138 & double(dfl.subject_no)<=168))=2;
+dfl.study(double(dfl.subject_no)>168)=3;
+dfl.study=categorical(dfl.study);
+
+% Lab-time variables to check for deviations from  experimental schedule
+dfl.lab_time_before_pre_treat_CPT=(dfl.time_pre_treat_CPT-dfl.arrival_time)*24*60;
+dfl.lab_time_before_post_treat_CPT=(dfl.time_post_treat_CPT-dfl.arrival_time)*24*60;
+dfl.waiting_time=(dfl.time_post_treat_CPT-dfl.time_drug_administration)*24*60;
+dfl.between_cpt_time=(dfl.time_post_treat_CPT-dfl.time_pre_treat_CPT)*24*60;
+
+dfl.lab_time_since_arrival(dfl.prepost=="1")=dfl.lab_time_before_pre_treat_CPT(dfl.prepost=="1");
+dfl.lab_time_since_arrival(dfl.prepost=="2")=dfl.lab_time_before_post_treat_CPT(dfl.prepost=="2");
 
 save df.mat dfl dfraw crf
