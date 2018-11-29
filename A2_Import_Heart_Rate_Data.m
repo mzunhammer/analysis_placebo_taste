@@ -4,20 +4,23 @@ clear
 protfolder='../data_placebo_taste/heart_rate/';
 dir_protfolder=dir(protfolder);
 fnames={dir_protfolder.name};
-fnames_trends=regexp(fnames,'^\d\d\d_\w_\w_\d-trends.txt','match');
+fnames_trends=regexp(fnames,'^\d\d\d_\w_\w(_\d)?-trends.txt','match');
 fnames_trends=[fnames_trends{:}]';
 
-fnames_xml_events=regexp(fnames,'^\d\d\d_\w_\w_\d.xml','match');
+fnames_xml_events=regexp(fnames,'^\d\d\d_\w_\w(_\d)?.xml','match');
 fnames_xml_events=[fnames_xml_events{:}]';
 
 %% Get info from filename
-fnameprts=regexp(fnames_trends,'^(\d\d\d)_(\w)_\w_(\d)-trends.txt','tokens');
+[fnameprts,ext]=regexp(fnames_trends,'^(\d\d\d)_(\w)_\w_(\d)?-trends.txt','tokens', 'tokenExtents');
 subIDs=cellfun(@(x) x{1}{1},fnameprts,'UniformOutput',0);
 sex=cellfun(@(x) x{1}{2},fnameprts,'UniformOutput',0);
 prepost=cellfun(@(x) str2num(x{1}{3}),fnameprts,'UniformOutput',0);
 prepost=[prepost{:}]';
 
 subIDs_num=cellfun(@(x) str2num(x),subIDs);
+
+% Subject IDs 72 and 241 are missing, as recordings were not started by
+% accident during the experiment.
 %% Get HR and O2 saturation time-lines from files
 format='%u%u%{HH:mm:ss}D%f%{MM/dd/uuuu}D%{HH:mm:ss}D%f%f%f%f%f%f%f%f%f%f%f%f';
 %Read-in numeric outcomes as str first... have to replace missing data encoded as *** for NaN.

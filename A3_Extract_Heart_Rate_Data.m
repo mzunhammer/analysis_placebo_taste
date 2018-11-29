@@ -32,66 +32,100 @@ post_t=15;
 % - Most participants had a blood pressure measurement btw.
 % 30 and 150 seconds after the CPT, which may affect heart rate.
 
-%% Start
+%% Load pre-read raw data and long df
 load('HR_df_raw.mat')
 load('df.mat')
 % Join dfl and HR timecourses
-HR_df_raw.subIDs_num=categorical(HR_df_raw.subIDs_num);
+HR_df_raw.subject_no=categorical(HR_df_raw.subIDs_num);
 HR_df_raw.prepost=categorical(HR_df_raw.prepost);
+dfl.subject_no_numeric=str2double(string(dfl.subject_no));
 
-dfl=outerjoin(dfl,HR_df_raw,'LeftKeys', {'subject_no','prepost'},...
-                            'RightKeys', {'subIDs_num','prepost'}); 
-dfl.Properties.VariableNames{'prepost_dfl'} = 'prepost';
-dfl.prepost_HR_df_raw=[];   
+dfl=outerjoin(dfl,HR_df_raw,'key',{'subject_no','prepost'},...
+                                   'Type','left',...
+                                   'MergeKeys',true,...
+                                    'RightVariables',{'fnames_trends','dfraw'});                     
 
-%% #Exclude sessions where true trigger could not be determined
-% Based on the assessment of maxtime_diff the following outliers with two
-% triggers in the HR recording were detected. These have to be excluded
-% a-priori, otherwise they will bias the synchronization of Rating and HR
-% time.
-%
-% 82: Subj 41, Session 2:
-% Two HR triggers in fairly close (47 s) succession that do not match the
-% duration of rating (180 s). I suspect "post"-HR-triggering from the
-% looking at the timing of BP measures, but the "true" trigger cannot be
-% determined>> Excluded.
-%
-% 109: Subj 55, Session 1:
-% Two HR triggers in close (31 s) succession that do not match the
-% duration of rating (180 s). True "first" trigger cannot be
-% determined>> Excluded.
-% 
-for i=[82,109]
-    dfl.dfraw{i}.triggers=NaN(size(dfl.dfraw{i}.triggers));
-    dfl.dfraw{i}.HR=NaN(size(dfl.dfraw{i}.HR));
-end                                             
+%% Excluded due to erronenous recordings:
+
+ erronenous=[395,451,495,497,587,625];              % 395 extreme maxtime_diff, 625,451,497,587 and 317 are recording with one trigger, which are not clearly aligned with the CTP-start, 495 was excluded as pre-testing CPT had to be repeated due to technical failure (Subj 280) 
+ for i=erronenous
+     dfl.dfraw{i}=[];
+ end                       
+%% In the first part of the experiment the end-time of CPT was logged with minute, but not second precision
+% Fore these files it is better to use the file-creation time.
+dfl.datetime_CPT_end(dfl.subject_no_numeric<=138)=dfl.datetime_CPT_filetime(dfl.subject_no_numeric<=138);
+
+%% #For sessions with 4 triggers >> Split, in first and second session
+% Gerrit sometimes forgot to pause recordings inbetween CPT measurements.
+% For Max, we decided to let measurements continue inbetween CPT
+% measurements
+% Splitting half-way
+% solves the issue (double-checked for every case).
+for i=1:length(dfl.dfraw) % Get number of triggers
+    if ~isempty(dfl.dfraw{i})
+        dfl.ntriggers(i)=sum(dfl.dfraw{i}.triggers);
+    end
+end
+
+disp({'Number of Sessions with 4-Triggers:',sum(dfl.ntriggers==4)});
+for i=find(dfl.ntriggers==4)'%[29,61,65,67,69,83,103,147,237,277:2:height(dfl)]
+    n=length(dfl.dfraw{i}.triggers);
+    dfl.dfraw{i+1}=dfl.dfraw{i}(round(n/2):end,:);
+    dfl.dfraw{i}=dfl.dfraw{i}(1:round(n/2),:);
+end
+
+for i=1:length(dfl.dfraw) % Get number of triggers again
+    if ~isempty(dfl.dfraw{i})
+        dfl.ntriggers(i)=sum(dfl.dfraw{i}.triggers);
+    end
+end
+disp({'Number of Sessions with 4-Triggers after splitting files:',sum(dfl.ntriggers==4)});
+
+
+%% For selected recordings with two or three triggers also split
+for i=[303, 297, 291] % Same for outliers, where only one trigger is available per CPT run
+    n=length(dfl.dfraw{i}.triggers);
+    dfl.dfraw{i+1}=dfl.dfraw{i}(round(n/2):end,:);
+    dfl.dfraw{i}=dfl.dfraw{i}(1:round(n/2),:);
+end
+
+for i=[349, 317,293] % Same for outliers, where only one trigger is available for one of the two CPT runs
+    n=length(dfl.dfraw{i}.triggers);
+    dfl.dfraw{i+1}=dfl.dfraw{i}(round(n/2):end,:);
+    dfl.dfraw{i}=dfl.dfraw{i}(1:round(n/2),:);
+end
+
+for i=1:length(dfl.dfraw) % Get number of triggers again
+    if ~isempty(dfl.dfraw{i})
+        dfl.ntriggers(i)=sum(dfl.dfraw{i}.triggers);
+    end
+end
+
 %% Correct recordings with three triggers
+disp({'Number of Sessions with 3-Triggers:',sum(dfl.ntriggers==3)});
+% Plot files with maxtime-diff below 0 (indicating that HR trigger was pulled before CTP trigger. all except for the two outliers were  below 2 seconds in time-difference, so should indicate no BIG problems)
+%files for repair
+%plot_raw_HR(dfl,find(dfl.ntriggers==3)');
+
 % Delete superfluous (pre-term) first trigger (start of session triggered
 % twice)
-for i=[23,41,53,114]
+for i=[23,40,41,53,114]
     t=find(dfl.dfraw{i}.triggers);
     dfl.dfraw{i}.triggers(t(1))=0;
 end
 % Delete superfluous (pre-term) last trigger (end of session triggered
 % twice)
-for i=[40,82,109]
+for i=[82,109]
     t=find(dfl.dfraw{i}.triggers);
-    dfl.dfraw{i}.triggers(t(1))=0;
-end                       
-%% #For sessions with 4 triggers >> Split, in first and second session
-% Gerrit forgot to pause recordings inbetween sessions. Splitting half-way
-% solves the issue (double-checked for every case).
-for i=[29,61,65,67,69,83,103,147,237]
-    n=length(dfl.dfraw{i}.triggers);
-    dfl.dfraw{i+1}=dfl.dfraw{i}(round(n/2):end,:);
-    dfl.dfraw{i}=dfl.dfraw{i}(1:round(n/2),:);
+    dfl.dfraw{i}.triggers(t(3))=0;
 end
-%% Check number of triggers and duration of epochs between triggers
-for i=1:length(dfl.dfraw)
+for i=1:length(dfl.dfraw) % Get number of triggers again
     if ~isempty(dfl.dfraw{i})
         dfl.ntriggers(i)=sum(dfl.dfraw{i}.triggers);
     end
 end
+disp({'Number of Sessions with 3-Triggers after splitting files:',sum(dfl.ntriggers==3)});
+
 %% Analyze all files with two triggers (before and after measurement)
 for i=1:length(dfl.dfraw)
     if dfl.ntriggers(i)==2 % For cases in which two triggers were set.
@@ -116,120 +150,97 @@ for i=1:length(dfl.dfraw)
     end
 end
 
-% Plots to check for outliers
+%% Compare time periods between BP measurements (which were logged by the monitor)
+% and HR measurements. BP measurements were always taken before and after CPT
+% Long time periods may indicate outliers/missing triggers.
 figure
-hist(dfl.time_of_last_bp_before_CPT)
+hist(dfl.time_of_last_bp_before_CPT,50)
 title('Time from last bp before CPT to pre-trigger')
+%plot(dfl.dfraw{dfl.subject_no=='12'}.datetime,
+
+%plot_raw_HR(dfl,find(dfl.time_of_last_bp_before_CPT>150)');
 
 figure
-hist(dfl.time_of_last_bp_after_CPT)
+hist(dfl.time_of_last_bp_after_CPT,50)
 title('Time from post-trigger to next bp after CPT ')
+
+%plot_raw_HR(dfl,find(dfl.time_of_last_bp_after_CPT>150)');
+
+% All look ok except
+% - i=303 (subject no 152, sess 1): Here there are two
+% triggers far away from each other, I suspect that only one trigger was
+% set for the pre-, as well as the post-treatment CPT
+% - i=297 (subject no 149, sess 1): same as above
+% - i=291 (subject no 146, sess 1): same as above
+
 %% Approximate correction for deviation of MATLAB time and HR monitor time
-% For sessions with two triggers on the monitor, triggger 2 should be very
-% close in time to the end of pain rating (datetime_CPT_filetime).
-% The monitor time was fairly aligned in the beginning of measurements but
-% was running on a battery... time drifted over the course of measurements
+%
+% The monitor time and the time of the computer used for CPT recordings was
+% fairly aligned in the beginning of the measurement periods. However, it
+% was running on a battery... the absolute time of the monitor drifted over
+% the course of measurements. For easier comparisons of CPT-start timestamps
+% and HR-timestamps, the monitor-time is corrected.
+% The procedure basically uses an robust linear regression of time CPT versus time
+% HR. This way, sessions with erronenous triggers have limited
+% influence.
 
-% Create synchronized version of trigger_times for better comparability
-% via linear regression.
-y=datenum(dfl.datetime_CPT_filetime);
-X=datenum(dfl.trigger_time_2);
-glm_timeshift = fitglm(X,y);
+dfl_new1=HR_monitor_trigger_time_correction(dfl(dfl.subject_no_numeric<=138,:));
+dfl_new2=HR_monitor_trigger_time_correction(dfl(dfl.subject_no_numeric>138,:));
+dfl=[dfl_new1;dfl_new2];
 
-% Add corrected datetime to all HR time-courses
-for i=1:length(dfl.dfraw)
-   	if ~isempty(dfl.dfraw{i})
-        timenew=glm_timeshift.predict(datenum(dfl.dfraw{i}.datetime));
-        dfl.dfraw{i}.datetime_corr=datetime(datestr(timenew));
-    end
-end
+% Check for recording where rating- and HR- timestamps are far apart after
+% synchronisation
+dfl.HR_vs_rating_trig_diff=seconds(timeofday(dfl.datetime_CPT_end)-timeofday(dfl.trigger_time_2_sync));
+figure
+hist(dfl.HR_vs_rating_trig_diff,100)
 
-% Create trigger_time_2_sync
-y_new=glm_timeshift.predict();
-dfl.trigger_time_2_sync=NaT(height(dfl),1);
-dfl.trigger_time_2_sync(~isnan(y_new))=datetime(datestr(y_new(~isnan(y_new))),'Format','default');
-figure(1)
-subplot(1,2,1)
-plot(timeofday(dfl.datetime_CPT_filetime),timeofday(dfl.trigger_time_2),'.')
-xlabel('CPT endtime');
-ylabel('trigger time 2');
-subplot(1,2,2)
-plot(timeofday(dfl.datetime_CPT_filetime)-timeofday(dfl.trigger_time_2),'.')
-xlabel('Subject NO');
-ylabel('CPT endtime - trigger time 2');
-
-title('Time of day MATLAB vs Monitor')
-
-figure(2)
-subplot(1,2,1)
-plot(timeofday(dfl.datetime_CPT_filetime),timeofday(dfl.trigger_time_2_sync),'.')
-xlabel('CPT endtime');
-ylabel('trigger time 2 synced');
-subplot(1,2,2)
-plot(timeofday(dfl.datetime_CPT_filetime)-timeofday(dfl.trigger_time_2_sync),'.')
-xlabel('Subject NO');
-ylabel('CPT endtime - trigger time 2 synced');
-title('Time of day MATLAB vs Monitor (synchronized')
-
-% Create trigger_time_1_sync
-y_new=glm_timeshift.predict(datenum(dfl.trigger_time_1));
-dfl.trigger_time_1_sync=NaT(height(dfl),1);
-dfl.trigger_time_1_sync(~isnan(y_new))=datetime(datestr(y_new(~isnan(y_new))),'Format','default');
-
-% Create difference between Rating and HR duration
-dfl.maxtime_HR=dfl.trigger_time_2-dfl.trigger_time_1;
-dfl.maxtime_diff=seconds(dfl.maxtime_HR)-dfl.maxtime;
-
+%plot_raw_HR(dfl,find(dfl.HR_vs_rating_trig_diff<-300)','Corrected_Time');
 %% Check for differences between maxtime (Rating) and maxtime(HR)
-%Positive time differences are expected, as Gerrit pressed the HR-
-%post-measurement trigger only after ending the rating. Negative
+%Positive time differences are expected, as Gerrit & Max pressed the HR-
+%post-measurement trigger usually just after ending the rating. Negative
 %differences indicate that HR recordings were shorter than the rating period,
-%This is incompatible with the experimental time-course and indicates
-%problems.
-% figure(3)
-% hist(dfl.maxtime_diff)
-% title('Difference maxtime (Rating) minus maxtime (HR Monitor)')
-% figure(4)
-% hist(dfl.maxtime_diff)
-% title('Difference maxtime (Rating) minus maxtime (HR Monitor), clean')
+%which is incompatible with the experimental time-course and indicates
+ %problems.
+
+figure
+hist(dfl.maxtime_diff,20)
+title('Difference maxtime (HR Monitor) minus maxtime (Rating), clean')
 % After removing two outliers, the differences in Rating and HR times seem
 % reasonable. >> As expected, HR times are a little longer. We can proceed
 % with extracting the HR time-windows based on rating maxtime.
-%% Plot files with more than two triggers >> Required once to hand-pick
+
+% Plot files with maxtime-diff below 0 (indicating that HR trigger was pulled before CTP trigger).
 %files for repair
-% for i = find(dfl.ntriggers>2)'
-% figure
-% plot(dfl.dfraw{i}.datetime_corr,...
-%     [dfl.dfraw{i}.HR,...
-%      dfl.dfraw{i}.triggers*100]);
-% title(sprintf('i=%d, subID=%d, sess=%d',i,dfl.subIDs_num(i),dfl.prepost(i)))
-% hold on
-% plot(dfl.dfraw{i}.datetime_corr,...
-%     dfl.dfraw{i}.NBPS,'LineWidth',30);
-% hold off
-% end
+%plot_raw_HR(dfl,find(dfl.maxtime_diff<-1)','Corrected_Time');
+%  all of these showed very small time-difference, indicating no problems)
+
+% Plot files with maxtime-diff above 15 seconds (indicating either very
+% long trigger delay by Gerrit and Max or other problems)
+%plot_raw_HR(dfl,find(dfl.maxtime_diff>15)','Corrected_Time');
+%Fazit: For all of these extremes, HR recordings looked legitimate.
+%Post-testing triggers for HR were likely pressed too late. No problem,
+%since HR-recording windows are chosen based on the first trigger, only.
 %% Plot files with only one trigger >> Required once to hand-pick
 %files for repair
-% for i = find(dfl.ntriggers==1)'
-% figure
-% plot(dfl.dfraw{i}.datetime_corr,...
-%     [dfl.dfraw{i}.HR,...
-%      dfl.dfraw{i}.triggers*100]);
-% title(sprintf('i=%d, subID=%d, sess=%d',i,dfl.subIDs_num(i),dfl.prepost(i)))
-% hold on
-% plot(dfl.dfraw{i}.datetime_corr,...
-%     dfl.dfraw{i}.NBPS,'LineWidth',30);
-% line([dfl.datetime_CPT_filetime(i)-seconds(dfl.maxtime(i)),...
-%       dfl.datetime_CPT_filetime(i)],[100,100],'LineWidth',10);
-% hold off
-% end
-% Fazit: In all cases where only one trigger was found in the HR records,
+for i=1:length(dfl.dfraw) % Get number of triggers again
+    if ~isempty(dfl.dfraw{i})
+        dfl.ntriggers(i)=sum(dfl.dfraw{i}.triggers);
+    end
+end
+
+%plot_raw_HR(dfl,find(dfl.ntriggers==1)','Corrected_Time');
+% Fazit: Most cases where only one trigger was found in the HR records,
 % these corresponded to "early triggers", indicating the start of CPT. This
 % was confirmed by comparing (synced) trigger times with rating periods and
 % by checking that they are placed between BP measurements.
-
-
+% The following cases are suspects of "late
+% "Late trigger" 451 497 587. Completely Unclear: 317
 %%  Extraction of timecourse
+
+% NOTE 1: ONLY THE "START TRIGGER IS USED TO DEFINE THE BEGINNING OF HR
+% RECORDINGS
+% NOTE 2: THE LENGTH OF THE HR PERIOD IS DEFINED BY "MAXTIME" AS OBTAINED
+% IN THE PAIN RATING CPT RECORDING
 dfl.CPT_HR_pre=cell(size(dfl.dfraw));
 dfl.CPT_HR=cell(size(dfl.dfraw));
 dfl.CPT_HR_post=cell(size(dfl.dfraw));
@@ -248,7 +259,7 @@ for i=1:height(dfl)
         i_post=trigs(1)+ratingdur;
         if i_pre<0
             fprintf('Warning, i_pre<0 for i=%d, Participant: %d, prepost: %d\n',...
-            i,dfl.subject_no(i),dfl.prepost(i))
+            i,dfl.subject_no_numeric(i),dfl.prepost(i))
             i_pre=1;
         end
         
@@ -273,8 +284,11 @@ for i=1:height(dfl)
         % Summarize pre,main,post periods
         dfl.CPT_HR_mean_pre(i)=nanmean(dfl.CPT_HR_pre{i});
         dfl.CPT_HR_mean(i)=nanmean(dfl.CPT_HR{i});
-        dfl.CPT_HR_mean(dfl.CPT_HR_mean==0)=NaN;
         dfl.CPT_HR_mean_post(i)=nanmean(dfl.CPT_HR_post{i});
+        dfl.CPT_HR_mean_pre(dfl.CPT_HR_mean_pre==0)=NaN;
+        dfl.CPT_HR_mean(dfl.CPT_HR_mean==0)=NaN;
+        dfl.CPT_HR_mean_post(dfl.CPT_HR_mean_post==0)=NaN;
+        
         dfl.CPT_HR_perc_BL{i}=(dfl.CPT_HR{i}./dfl.CPT_HR_mean_pre(i)).*100;
         dfl.CPT_HR_max(i)=max(dfl.CPT_HR{i})';
     end
@@ -284,3 +298,18 @@ end
 dfl.CPT_HR_max_perc_BL=dfl.CPT_HR_max./dfl.CPT_HR_mean_pre.*100;
 
 save df.mat dfl dfraw crf '-append'
+
+% %% For exploratory analysis of extreme values
+% figure,hist(dfl.CPT_HR_mean_pre,100)
+% figure,hist(dfl.CPT_HR_mean,100)
+% figure,hist(dfl.CPT_HR_mean_post,100)
+% figure,hist(dfl.CPT_HR_max,100)
+% 
+% % Check out very low HR_mean recordings
+%plot_raw_HR(dfl,find(dfl.CPT_HR_mean<60)','Corrected_Time');
+
+% % Check out very high HR_mean recordings
+%plot_raw_HR(dfl,find(dfl.CPT_HR_mean>110)','Corrected_Time');
+ 
+%% Final check:
+%plot_raw_HR(dfl,randi([1,height(dfl)],1,10),'Corrected_Time','Trigger_Focus');
