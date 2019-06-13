@@ -18,3 +18,9 @@ vignettes/*.pdf
 # IGNORE
 *.mat
 *.sav
+*.txt
+*.xlsx
+*.jpg
+# BUT not...
+
+!df_for_publishing.mat
