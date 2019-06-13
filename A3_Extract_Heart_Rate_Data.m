@@ -295,6 +295,7 @@ for i=1:height(dfl)
     end
 end
 
+dfl.CPT_HR_mean_perc_BL=dfl.CPT_HR_mean./dfl.CPT_HR_mean_pre.*100;
 dfl.CPT_HR_max_perc_BL=dfl.CPT_HR_max./dfl.CPT_HR_mean_pre.*100;
 
 save df.mat dfl dfraw crf '-append'
