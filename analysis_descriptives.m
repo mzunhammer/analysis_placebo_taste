@@ -1,4 +1,5 @@
-function analysis_descriptives(dfl_c,dfw_c, dfw_c_pla)
+function analysis_descriptives(dfl_c, dfw_c, dfw_c_pla, treatlabels)
+treatcolors={[0,0,0],[0.6,0.6,0.6],[0,0.3,0.7],[0.7,0,0.3]};
 
 %% DESCRIPTIVE RESULTS (TABLES) %%%%%%%%%%%%%%%
 %% Basic sample descriptives

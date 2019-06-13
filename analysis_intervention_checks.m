@@ -1,5 +1,5 @@
-function analysis_intervention_checks(dfw_c,dfw_c_pla)
-
+function analysis_intervention_checks(dfw_c, dfw_c_pla, treatlabels)
+    treatcolors={[0,0,0],[0.6,0.6,0.6],[0,0.3,0.7],[0.7,0,0.3]};
     %% GLMs Treatment related beliefs
     dfw_c_pla.z_maxtime_pre=nanzscore(dfw_c_pla.maxtime_pre); %no
     dfw_c_pla.z_maxtime_post=nanzscore(dfw_c_pla.maxtime_post); %no
@@ -28,6 +28,13 @@ function analysis_intervention_checks(dfw_c,dfw_c_pla)
     %plot(dfw_c_pla.y,lm{i}.Residuals.Studentized,'.')
     end
 
+    %% Extra assessment within participants reporting side-effects
+    dfw_c_pla_UAW=dfw_c_pla(dfw_c_pla.sumUAW_post>0,:);
+    
+    lm{i}=fitlm(dfw_c_pla_UAW,'sumUAW_post~study+treat_reordered','RobustOpts','fair');
+    anova(lm{i})
+    lm{i}
+    
     %% Treatment CPT-related experimental timing
     CPT_timing_vars={'treat',...
               'lab_time_before_pre_treat_CPT','lab_time_before_post_treat_CPT',...
@@ -46,4 +53,53 @@ function analysis_intervention_checks(dfw_c,dfw_c_pla)
         %hgexport(gcf, ['~/Desktop/',CPT_timing_vars{i},'.png'], hgexport('factorystyle'), 'Format', 'png'); 
         %crop(['~/Desktop/',CPT_timing_vars{i},'.png']);
     end
+    
+    
+%% Figure Taste Intensity Ratings
+figure
+[~,h_means]=groupplot(dfw_c.treat,dfw_c.taste_intensity_post,'group_color',treatcolors);
+
+% title('Change in area under the pain curve',...
+%       'Units','Normalized',...
+%       'Position',[0.5,1.02])
+ylabel('Taste intensity rating ± 95% CI')
+xticklabels(treatlabels);
+hline(0,'color',[0 0 0])
+
+%set(gcf, 'Position', [0 0 960 540])
+hgexport(gcf, '../paper_placebo_taste/figure_taste_int.svg', hgexport('factorystyle'), 'Format', 'svg'); 
+hgexport(gcf, '../paper_placebo_taste/figure_taste_int.png', hgexport('factorystyle'), 'Format', 'png'); 
+crop('../paper_placebo_taste/figure_taste_int.png');
+
+%% Figure Taste Valence Ratings
+figure
+[~,h_means]=groupplot(dfw_c.treat,dfw_c.taste_valence_post,'group_color',treatcolors);
+
+% title('Change in area under the pain curve',...
+%       'Units','Normalized',...
+%       'Position',[0.5,1.02])
+ylabel('Taste valence rating ± 95% CI')
+xticklabels(treatlabels);
+hline(0,'color',[0 0 0])
+
+%set(gcf, 'Position', [0 0 960 540])
+hgexport(gcf, '../paper_placebo_taste/figure_taste_val.svg', hgexport('factorystyle'), 'Format', 'svg'); 
+hgexport(gcf, '../paper_placebo_taste/figure_taste_val.png', hgexport('factorystyle'), 'Format', 'png'); 
+crop('../paper_placebo_taste/figure_taste_val.png');
+
+%% Figure Treatment Expectation Ratings
+figure
+[~,h_means]=groupplot(dfw_c.treat,dfw_c.treat_expect_post,'group_color',treatcolors);
+
+% title('Change in area under the pain curve',...
+%       'Units','Normalized',...
+%       'Position',[0.5,1.02])
+ylabel('Expectation of pain relief ± 95% CI')
+xticklabels(treatlabels);
+hline(0,'color',[0 0 0])
+
+%set(gcf, 'Position', [0 0 960 540])
+hgexport(gcf, '../paper_placebo_taste/figure_treat_expect.svg', hgexport('factorystyle'), 'Format', 'svg'); 
+hgexport(gcf, '../paper_placebo_taste/figure_treat_expect.png', hgexport('factorystyle'), 'Format', 'png'); 
+crop('../paper_placebo_taste/figure_treat_expect.png');
 end

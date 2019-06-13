@@ -7,7 +7,7 @@ resamples=1000;
 figure
 % Styles
 meanlinesize=5;
-spaghetticolor=[0.5,0.5,0.5];
+spaghetticolor=[0.2,0.2,0.2];
 boot_spaghetticolor=[0.2,0.2,0.8];
 
 meancolor=[0,0,0];
@@ -24,7 +24,7 @@ y_min = round(min(nanmin(vertcat(y{:}))/10))*10;
 y_max = round(max(nanmax(vertcat(y{:}))/10))*10;
 
 for i=1:k1
-    curr_y={}; 
+    curr_y={};
     for j=1:k2
         % y-data
         curr_y=y((x1 == groups1(i)) & (x2 == groups2(j)));
@@ -34,7 +34,7 @@ for i=1:k1
         curr_y_sd = nanstd([curr_y{:}]');
         %curr_y_CI= bootci(10000,{@nanmean,curr_y(:,j)},'type','cper')-curr_y_mean(j);
 
-        subaxis(k1,k2,iplot,'Spacing',0.03,'MarginLeft',0.15,'MarginRight',0.01)
+        subaxis(k1,k2,iplot,'Spacing',0,'MarginLeft',0,'MarginRight',0)
         % Plots
         for n=1:length(curr_y)
             plot(curr_y{n},'color',[spaghetticolor,0.3]);
@@ -56,9 +56,9 @@ for i=1:k1
               y_min,... %
               y_max]); %
         hline(ref,'color',[.5 .5 .5])
-        box off;
-
+        box off;    
         iplot=iplot+1;
+        grid on;
     end
 end
 

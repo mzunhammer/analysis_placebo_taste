@@ -21,7 +21,7 @@ iplot=1;
 for i=1:k1
     curr_y={}; 
     for j=1:k2
-        % y-data
+        % y-data        
         curr_y=y((x1 == groups1(i)) & (x2 == groups2(j)));
         curr_y_maxtime=y_vline((x1 == groups1(i)) & (x2 == groups2(j)));
         curr_mean_maxtime=mean(curr_y_maxtime);
@@ -29,10 +29,17 @@ for i=1:k1
         %curr_y_sd = nanstd([curr_y{:}]');
         curr_y_CI= bootci(bootsamples,{@nanmean,[curr_y{:}]'},'type','cper')-curr_y_mean;
         subaxis(1,k1,i,'Spacing',0.03,'MarginLeft',0.15,'MarginRight',0.01)
-        boundedline(1:180',curr_y_mean',abs(curr_y_CI)',...
+        if mod(j,2)>0
+            boundedline(1:180',curr_y_mean',abs(curr_y_CI)','--b',...
                     'alpha',...
                     'transparency',0.1,...
                     'cmap',meancolor*(1-(j/k2)));
+        else
+            boundedline(1:180',curr_y_mean',abs(curr_y_CI)','b',...
+                    'alpha',...
+                    'transparency',0.1,...
+                    'cmap',meancolor*(1-(j/k2)));
+        end
         %plot(curr_y_mean,'color',meancolor*0.5); %,'LineWidth',meanlinesize
         hold on
         axis([0,...
