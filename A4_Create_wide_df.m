@@ -33,7 +33,10 @@ dfw.maxtime_diff=dfw.maxtime_post-dfw.maxtime_pre;
 dfw.maxtimers_diff=dfw.maxtimers_post-dfw.maxtimers_pre;
 dfw.SYS_after_CPT_diff=dfw.SYS_after_CPT_post-dfw.SYS_after_CPT_pre;
 dfw.DIA_after_CPT_diff=dfw.DIA_after_CPT_post-dfw.DIA_after_CPT_pre;
+
 dfw.CPT_HR_mean_diff=dfw.CPT_HR_mean_post-dfw.CPT_HR_mean_pre;
+dfw.CPT_HR_mean_perc_BL_diff=dfw.CPT_HR_mean_perc_BL_post-dfw.CPT_HR_mean_perc_BL_pre;
+
 dfw.CPT_HR_max_diff=dfw.CPT_HR_max_post-dfw.CPT_HR_max_pre;
 dfw.CPT_HR_max_perc_BL_diff=dfw.CPT_HR_max_perc_BL_post-dfw.CPT_HR_max_perc_BL_pre;
 

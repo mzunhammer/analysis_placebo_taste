@@ -100,6 +100,13 @@ dfraw.timefull=dfraw.timefull(:,1:end-4);
 %sampling intervals/3 minutes
 dfraw.ratingfull(:,1)=0; % sometimes the very first epoch recorded a non-null signal that immediately returned to 0 (the actual start position of all measurements)
 
+
+% Correction of User-Error
+% Participant 278 had the slider at 100 for the first seconds of
+% CPT testing, before setting to 0 (both sessions).
+dfraw.ratingfull((cellfun(@(x) strcmp(x,'278'),dfraw.subIDs)&(dfraw.prepost==1)),1:50)=0;
+dfraw.ratingfull((cellfun(@(x) strcmp(x,'278'),dfraw.subIDs)&(dfraw.prepost==2)),1:10)=0;
+
 % Create a vector of full rating data where NaNs are filled with 100
 dfraw.ratingfull100=dfraw.ratingfull;
 dfraw.ratingfull100(isnan(dfraw.ratingfull))=100;
@@ -175,6 +182,9 @@ treat=categorical(dfraw.treat);
 
 % Resample time-courses to 180 seconds and as cells
 % dfl.rating180=num2cell(resample(dfraw.ratingfull100',1,10)',2);
+
+% Note that the resampling can introduce values slightly below 0 or above
+% 100!
 rating180=cell(size(subject_no));
 rating180_full=cell(size(subject_no));
 for i = 1:length(subject_no)
@@ -211,7 +221,7 @@ ratingdur_treat_expect=dfraw.ratingdur_treat_expect;
 
 % Note: Treat efficacy & taste ratings were saved in separate .mat files
 % for participants 1-138 and in the same file as post-treatment CPT
-% afterwards.
+% afterwards. 
 treat_efficacy=dfraw.treat_efficacy;
 taste_intensity=dfraw.taste_intensity;
 taste_valence=dfraw.taste_valence;
@@ -248,6 +258,17 @@ dfl1=table(subject_no,...
     ratingdur_taste_intensity,...
     ratingdur_taste_valence);
 
+%For participant 139 onwards the stimulation script also posted
+% treatment-intensity, -expectations and -valence ratings for participants in the non-treatment
+% group, also. For these sessions the experimenter entered nonsensical values to
+% continue the experiment.
+dfl1.treat_efficacy(dfl1.treat=="0")=NaN;
+dfl1.taste_intensity(dfl1.treat=="0")=NaN;
+dfl1.taste_valence(dfl1.treat=="0")=NaN;
+
+dfl_c.treat_efficacy(dfl_c.treat=="0")=NaN;
+dfl_c.taste_intensity(dfl_c.treat=="0")=NaN;
+dfl_c.taste_valence(dfl_c.treat=="0")=NaN;
 %% Create long df (dfl) from raw imports (post-treatment ratings)
 subject_no=categorical(cellfun(@str2num,dfraw2.subIDs));
 
