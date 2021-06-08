@@ -34,7 +34,7 @@ for i=1:k1
         curr_y_sd = nanstd([curr_y{:}]');
         %curr_y_CI= bootci(10000,{@nanmean,curr_y(:,j)},'type','cper')-curr_y_mean(j);
 
-        subaxis(k1,k2,iplot,'Spacing',0,'MarginLeft',0,'MarginRight',0)
+        subaxis(k1,k2,iplot,'Spacing',0,'MarginLeft',0.15,'MarginRight',0)
         % Plots
         for n=1:length(curr_y)
             plot(curr_y{n},'color',[spaghetticolor,0.3]);

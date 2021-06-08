@@ -17,7 +17,7 @@ study_select={'1','2','3'};
 %% Select substudy
 dfl=dfl(ismember(dfl.study,study_select),:);
 dfw=dfw(ismember(dfw.study,study_select),:);
-%% Exclude excluded and outlier
+%% Exclude excluded
 dfl_c=apply_exclusion_criteria(dfl);
 dfw_c=apply_exclusion_criteria(dfw);
 %% Create sub-dfs limited to placebo-conditions
@@ -38,6 +38,7 @@ analysis_explore_associations(dfw_c,dfw_c_pla) % to be revisited
 analysis_HR(dfl_c,dfw_c,treatlabels);
 analysis_HR_vs_pain_ratings(dfl_c,dfw_c, treatlabels)
 analysis_COMT(dfl_c,dfw_c,treatlabels,'temp_correct');
+
 % analysis_BP(dfw_c,dfl_c) not yet completed
 
 % For pairwise testing of group differences:
