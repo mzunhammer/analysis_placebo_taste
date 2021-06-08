@@ -298,7 +298,7 @@ end
 dfl.CPT_HR_mean_perc_BL=dfl.CPT_HR_mean./dfl.CPT_HR_mean_pre.*100;
 dfl.CPT_HR_max_perc_BL=dfl.CPT_HR_max./dfl.CPT_HR_mean_pre.*100;
 
-save df.mat dfl dfraw crf '-append'
+save df.mat dfl dfraw crf df_questionnaire '-append'
 
 % %% For exploratory analysis of extreme values
 % figure,hist(dfl.CPT_HR_mean_pre,100)
