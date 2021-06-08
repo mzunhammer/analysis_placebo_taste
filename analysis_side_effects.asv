@@ -45,11 +45,9 @@ dfw_c_pla.treat_reordered=reordercats(dfw_c_pla.treat,{'1','2','3'});
 UAW_lm1=fitlm(dfw_c_pla,'sumUAW_post~treat_reordered+study','RobustOpts','on')
 UAW_lm1_anova=anova(UAW_lm1)
 anova(UAW_lm1,'summary')
-(UAW_lm1_anova.SumSq)/(UAW_lm1_anova.SumSq+UAW_lm1_anova.SumSq('Error')) % partial eta squared
+(UAW_lm1_anova.ANOVA.SumSq)./(UAW_lm1_anova.ANOVA.SumSq+UAW_lm1_anova.ANOVA.SumSq('Error'))
 
-UAW_lm2=fitlm(dfw_c_pla(dfw_c_pla.sumUAW_post>0,:),'sumUAW_post~treat_reordered+study','RobustOpts','on')
-UAW_lm2_anova=anova(UAW_lm2)
-anova(UAW_lm2,'summary')
-(UAW_lm2_anova.SumSq)/(UAW_lm2_anova.SumSq+UAW_lm2_anova.SumSq('Error'))
-
+dfw_c_pla.z_UAW_perc_post=nanzscore(dfw_c_pla.sumUAW_post)
+dfw_c_pla.treat_reordered=reordercats(dfw_c_pla.treat,{'3','2','1','0'});
+UAW_lm1z=fitlm(dfw_c_pla,'z_UAW_perc_post~treat_reordered+study','DummyVarCoding','effects')
 
