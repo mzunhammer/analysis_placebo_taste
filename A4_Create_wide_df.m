@@ -3,7 +3,7 @@ load df.mat
 
 %% Create wide df with difference values
 
-noprepost=['prepost','treat','study',crf.Properties.VariableNames];
+noprepost=['prepost','treat','study',crf.Properties.VariableNames, df_questionnaire.Properties.VariableNames];
 pre=dfl(dfl.prepost=='1',:);
 post=dfl(dfl.prepost=='2',:);
 dfw=join(pre,post,'Keys','subject_no','KeepOneCopy',noprepost);
@@ -34,11 +34,17 @@ dfw.maxtimers_diff=dfw.maxtimers_post-dfw.maxtimers_pre;
 dfw.SYS_after_CPT_diff=dfw.SYS_after_CPT_post-dfw.SYS_after_CPT_pre;
 dfw.DIA_after_CPT_diff=dfw.DIA_after_CPT_post-dfw.DIA_after_CPT_pre;
 
+
+
 dfw.CPT_HR_mean_diff=dfw.CPT_HR_mean_post-dfw.CPT_HR_mean_pre;
+dfw.CPT_HR_mean_change_from_BL_diff= dfw.CPT_HR_mean_change_from_BL_post-dfw.CPT_HR_mean_change_from_BL_pre;
 dfw.CPT_HR_mean_perc_BL_diff=dfw.CPT_HR_mean_perc_BL_post-dfw.CPT_HR_mean_perc_BL_pre;
 
 dfw.CPT_HR_max_diff=dfw.CPT_HR_max_post-dfw.CPT_HR_max_pre;
+dfw.CPT_HR_max_change_from_BL_diff= dfw.CPT_HR_max_change_from_BL_post-dfw.CPT_HR_max_change_from_BL_pre;
 dfw.CPT_HR_max_perc_BL_diff=dfw.CPT_HR_max_perc_BL_post-dfw.CPT_HR_max_perc_BL_pre;
+
+
 
 
 % Make time more readable in wide format

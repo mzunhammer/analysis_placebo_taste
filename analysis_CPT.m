@@ -7,11 +7,29 @@ function analysis_CPT(dfl_c,dfw_c,treatlabels, varargin)
 % 'averagecurves': Will create a plot of averaged CPT rating curves
 % 'prepost_figure1': Will create a plot of main results including pre-post
 % spaghetti plot.
+treatcolors={[0,0,0],[0.6,0.6,0.6],[0,0.3,0.7],[0.7,0,0.3]};
+
+% Create z_scores of main variables
+dfw_c.z_aucrating_perc_pre=nanzscore(dfw_c.aucrating_perc_pre);
+dfw_c.z_aucrating_perc_post=nanzscore(dfw_c.aucrating_perc_post);
+dfw_c.z_meanrating_pre=nanzscore(dfw_c.meanrating_pre);
+dfw_c.z_meanrating_post=nanzscore(dfw_c.meanrating_post);
+% Create log versions of maxtime for use in regression, as the data are strongly non-normal
+dfw_c.log_maxtime_pre=log(dfw_c.maxtime_pre);
+dfw_c.log_maxtime_post=log(dfw_c.maxtime_post);
+dfw_c.z_log_maxtime_pre=nanzscore(dfw_c.log_maxtime_pre);
+dfw_c.z_log_maxtime_post=nanzscore(dfw_c.log_maxtime_post);
+
+dfw_c.z_AUC_diff=nanzscore(dfw_c.AUC_diff);
+dfw_c.z_TT_TU=nanzscore(dfw_c.TT_TU);
 
 
 %% GLM correct %AUCP
 dfw_c.z_aucrating_perc_pre=nanzscore(dfw_c.aucrating_perc_pre);
 dfw_c.z_aucrating_perc_post=nanzscore(dfw_c.aucrating_perc_post);
+dfw_c.AUC_diff=dfw_c.aucrating_perc_post-dfw_c.aucrating_perc_pre;
+dfw_c.maxtime_diff=dfw_c.maxtime_post-dfw_c.maxtime_pre;
+
 dfw_c.z_AUC_diff=nanzscore(dfw_c.AUC_diff);
 dfw_c.z_TT_TU=nanzscore(dfw_c.TT_TU);
 dfl_c.z_TT_TU=nanzscore(dfl_c.TT_TU);
@@ -29,7 +47,11 @@ dfw_c.aucrating_perc_post_temp_correct=AUPC_post_temp.Residuals.Raw+AUPC_post_te
 dfw_c.aucrating_perc_diff_temp_correct=AUPC_diff_temp.Residuals.Raw+AUPC_diff_temp.Coefficients.Estimate(1);
 
 %% GLM correct maxtime
-maxtimers=dfw_c.subject_no(dfw_c.maxtime_pre>179);
+
+maxtimers=dfw_c.subject_no((dfw_c.maxtime_pre>179) & (dfw_c.maxtime_post>179));
+
+dfw_c.maxtimers=(dfw_c.maxtime_pre>179) & (dfw_c.maxtime_post>179);
+dfw_c.aborters=~dfw_c.maxtimers;
 dfl_c_aborters=dfl_c(~ismember(dfl_c.subject_no,maxtimers),:);
 dfw_c_aborters=dfw_c(~ismember(dfw_c.subject_no,maxtimers),:);
 
@@ -72,7 +94,6 @@ wide_maxtime=dfw_c_aborters.maxtime_diff;
 maxtime_y_label='Change in CPT hand retention time (s) ± 95% CI';
 end
 %% Basic CPT descriptives
-treatcolors={[0,0,0],[0.6,0.6,0.6],[0,0.3,0.7],[0.7,0,0.3]};
 if any(strcmp(varargin,'exploratory'))
     CPTvars={'treat',...
               'aucrating_perc_pre',...
@@ -146,15 +167,15 @@ if any(strcmp(varargin,'singlecurves'))
 end
 %% SUPPLEMENT 1b: plot MEAN pain rating curves
 if any(strcmp(varargin,'averagecurves'))
-    h_means=cpt_timeplot_means(dfl_c.treat,dfl_c.prepost,dfl_c.rating180_full,dfl_c.maxtime,[0,100],50);
+    h_means=cpt_timeplot_means(dfl_c.treat,dfl_c.prepost,dfl_c.rating180_full,dfl_c.maxtime,[0,100],50,'highlight_difference','group_color',treatcolors);
     hs = findall(gcf,'Type','axes');
-    title(hs(4),treatlabels(1));
-    title(hs(3),treatlabels(2));
-    title(hs(2),treatlabels(3));
-    title(hs(1),treatlabels(4));
+    title(hs(4),treatlabels(1),'FontWeight', 'normal');
+    title(hs(3),treatlabels(2),'FontWeight', 'normal');
+    title(hs(2),treatlabels(3),'FontWeight', 'normal');
+    title(hs(1),treatlabels(4),'FontWeight', 'normal');
 
     yticklabels(hs([1,2,3]),[])
-    grid(hs(1)),grid(hs(2)),grid(hs(3)),grid(hs(4));
+    %grid(hs(1)),grid(hs(2)),grid(hs(3)),grid(hs(4));
     ylabel(hs(4),'VAS pain rating ± 95% CI');
     xlabel(hs(1),'Time (s)');
     xlabel(hs(2),'Time (s)');
@@ -169,7 +190,11 @@ if any(strcmp(varargin,'averagecurves'))
     % text(hs(2),0.85, 0.55, 'post','Units','normalized','FontSize',11)
     % text(hs(1),0.85, 0.85, 'pre','Units','normalized','FontSize',11)
     % text(hs(1),0.85, 0.55, 'post','Units','normalized','FontSize',11)
-
+    hs(4).Children(5).HandleVisibility='off';
+    hs(4).Children(3).HandleVisibility='off';
+    hs(4).Children(2).HandleVisibility='off';
+    legend(hs(4),'Pre-treatment','Post-treatment','Location','southwest') %,'Pre treatment','mean_m_a_x ± 95% CI','Post treatment','mean_m_a_x ± 95% CI',
+    legend(hs(4),'boxoff');
     hgexport(gcf, '../paper_placebo_taste/figure1Sb.svg', hgexport('factorystyle'), 'Format', 'svg'); 
     hgexport(gcf, '../paper_placebo_taste/figure1Sb.png', hgexport('factorystyle'), 'Format', 'png'); 
     crop('../paper_placebo_taste/figure1Sb.png');
@@ -230,8 +255,9 @@ hgexport(gcf, '../paper_placebo_taste/figure1S.png', hgexport('factorystyle'), '
 crop('../paper_placebo_taste/figure1S.png');
 end
 %% Figure 1 short version
+y_label='Change in area under the pain curve (%) ± 95% CI';
 figure
-[~,h_means]=groupplot(dfw_c.treat,dfw_c.aucrating_perc_diff_temp_correct,'group_color',treatcolors);
+[~,h_means]=groupplot(dfw_c.treat,dfw_c.AUC_diff,'group_color',treatcolors);
 ylabel(y_label)
 xticklabels(treatlabels);
 hline(0,'color',[0 0 0])
@@ -239,38 +265,24 @@ hline(0,'color',[0 0 0])
 hgexport(gcf, '../paper_placebo_taste/figure1v2.svg', hgexport('factorystyle'), 'Format', 'svg'); 
 hgexport(gcf, '../paper_placebo_taste/figure1v2.png', hgexport('factorystyle'), 'Format', 'png'); 
 crop('../paper_placebo_taste/figure1v2.png');
+
+
+
 %% GLM analysis %AUCP
-dfw_c.placebo_treat=dfw_c.treat~='0';
-dfw_c.taste_placebo_treat=mergecats(dfw_c.treat,{'2','3'},'2');
-dfw_c.taste_placebo_treat=reordercats(dfw_c.taste_placebo_treat,{'0','1','2'});
-dfw_c.z_aucrating_perc_pre=nanzscore(dfw_c.aucrating_perc_pre);
-dfw_c.z_aucrating_perc_post=nanzscore(dfw_c.aucrating_perc_post);
-dfw_c.z_AUC_diff=nanzscore(dfw_c.AUC_diff);
-dfw_c.z_TT_TU=nanzscore(dfw_c.TT_TU);
+warning ('off','all');
+lm_results_per_protocol=lm_main(dfw_c,'aucrating_perc_post~aucrating_perc_pre+study');
+z_lm_results_per_protocol=lm_main(dfw_c,'z_aucrating_perc_post~z_aucrating_perc_pre+study');
 
-dfw_c.treat_reordered=reordercats(dfw_c.treat,{'0','1','2','3'}); %change order for contrasts
-% GLM analysis %AUCP - UNCORRECTED
-AUPClm1=fitlm(dfw_c,'z_aucrating_perc_post~z_aucrating_perc_pre+treat_reordered','RobustOpts','fair')
-anova(AUPClm1)
-%anova(AUPClm1,'summary')
-% GLM analysis %AUCP - STUDY CORRECTED
-AUPClm1=fitlm(dfw_c,'z_aucrating_perc_post~z_aucrating_perc_pre+treat_reordered+study','RobustOpts','fair')
-anova(AUPClm1)
-%anova(AUPClm1,'summary')
-figure, title('Residuals')
-plot(dfw_c.z_aucrating_perc_post,AUPClm1.Residuals.Studentized,'.')
-% GLM analysis %AUCP - TEMPERATURE
-AUPClm1=fitlm(dfw_c,'z_aucrating_perc_post~z_aucrating_perc_pre+treat_reordered+z_TT_TU','RobustOpts','fair')
-anova(AUPClm1)
-%anova(AUPClm1,'summary')
-figure, title('Residuals')
-plot(dfw_c.z_aucrating_perc_post,AUPClm1.Residuals.Studentized,'.')
+lm_results_ALL=lm_main(dfw,'aucrating_perc_post~aucrating_perc_pre+study');
+z_lm_results_ALL=lm_main(dfw,'z_aucrating_perc_post~z_aucrating_perc_pre+study');
 
-AUPC_all_placebo=fitlm(dfw_c,'z_aucrating_perc_post~z_aucrating_perc_pre+placebo_treat+z_TT_TU','RobustOpts','fair')
-anova(AUPC_all_placebo)
+lm_results_aborters=lm_main(dfw_c(dfw_c.aborters,:),'log_maxtime_post~log_maxtime_pre+study');
+z_lm_results_aborters=lm_main(dfw_c(dfw_c.aborters,:),'z_log_maxtime_post~z_log_maxtime_pre+study');
 
-AUPC_taste_placebo=fitlm(dfw_c,'z_aucrating_perc_post~z_aucrating_perc_pre+taste_placebo_treat+z_TT_TU','RobustOpts','fair')
-anova(AUPC_taste_placebo)
+lm_results_maxtimers=lm_main(dfw_c(dfw_c.maxtimers,:),'meanrating_post~meanrating_pre+study');
+z_lm_results_maxtimers=lm_main(dfw_c(dfw_c.maxtimers,:),'z_meanrating_post~z_meanrating_pre+study');
+warning ('on','all');
+
 %% Figure Xa: plot maxtime pre versus post
 if any(strcmp(varargin,'prepost_figure1'))
 figure

@@ -11,23 +11,32 @@ function analysis_intervention_checks(dfw_c, dfw_c_pla, treatlabels)
 
     treatvars={'treat',...
                'treat_expect_post','treat_efficacy_post','taste_intensity_post','taste_valence_post','sumUAW_post'};
-    %treatvars={'treat',...
-    %          'treat_expect_post','z_treat_efficacy_post','z_taste_intensity_post','z_taste_valence_post','z_sumUAW_post'};
+    ztreatvars={'treat',...
+              'treat_expect_post','z_treat_efficacy_post','z_taste_intensity_post','z_taste_valence_post','z_sumUAW_post'};
 
     dfw_c_pla.treat_reordered=reordercats(dfw_c_pla.treat,{'1','2','3'});
     lm=cell(size(treatvars));
     for i=2:length(treatvars)
     disp(treatvars{i})
     dfw_c_pla.y=dfw_c_pla.(treatvars{i});
-    lm{i}=fitlm(dfw_c_pla,'y~study+treat_reordered','RobustOpts','fair');
-    anova(lm{i})
+    dfw_c_pla.zy=dfw_c_pla.(ztreatvars{i});
+    lm{i}=fitlm(dfw_c_pla,'y~study+treat_reordered','RobustOpts','on');
+    zlm{i}=fitlm(dfw_c_pla,'zy~study+treat_reordered','RobustOpts','on');
+    lm_anova=anova(lm{i})
     lm{i}
+    zlm{i}
+    (lm_anova.SumSq)/(lm_anova.SumSq+lm_anova.SumSq('Error')) % partial eta squared
     %anova(lm{i},'summary');
     %figure
     %title(treatvars{i})
     %plot(dfw_c_pla.y,lm{i}.Residuals.Studentized,'.')
     end
 
+    %% Extra contrast for taste intensity
+    dfw_c_pla.treat_reordered=reordercats(dfw_c_pla.treat,{'2','3','1'});
+    lm_int=fitlm(dfw_c_pla,'taste_intensity_post~study+treat_reordered','RobustOpts','on')
+    zlm_int=fitlm(dfw_c_pla,'z_taste_intensity_post~study+treat_reordered','RobustOpts','on')
+    
     %% Extra assessment within participants reporting side-effects
     dfw_c_pla_UAW=dfw_c_pla(dfw_c_pla.sumUAW_post>0,:);
     
