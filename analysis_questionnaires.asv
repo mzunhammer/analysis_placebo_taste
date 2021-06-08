@@ -1,0 +1,48 @@
+function analysis_questionnaires(dfl_c,dfw_c, treatlabels, varargin)
+treatcolors={[0,0,0],[0.6,0.6,0.6],[0,0.3,0.7],[0.7,0,0.3]};
+
+%Select Variables for correlation analysis
+dfw_c.CPT_HR_max_change_from_BL_mean=mean([dfw_c.CPT_HR_max_change_from_BL_pre,dfw_c.CPT_HR_max_change_from_BL_post],2);
+dfw_c.aucrating_perc_mean=mean([dfw_c.aucrating_perc_pre,dfw_c.aucrating_perc_post],2);
+vars={...
+    'aucrating_perc_pre',...
+    'aucrating_perc_post',...
+    'AUC_diff',...
+    'CPT_HR_mean_pre_pre',...
+    'CPT_HR_mean_pre_post',...
+    'CPT_HR_max_change_from_BL_pre',...
+    'CPT_HR_max_change_from_BL_post',...
+    df_questionnaire.Properties.VariableNames{3:end}};
+
+%Correlation analysis
+[R,P]=corr(dfw_c{:,vars},'rows','pairwise','type','Kendall');
+xvalues = strrep(vars,'_',' ');
+yvalues = strrep(vars,'_',' ');
+
+%% Sanity checks I: correlation Matrix for all Questionnaires
+h = heatmap(xvalues,yvalues,R,'ColorMethod','None',...
+    'Colormap',cbrewer('div', 'BrBG', 21, 'linear')); 
+
+%% List top correlations
+var_of_interest='CPT_HR_max_change_from_BL_pre';
+
+namatrix=repmat(vars,size(R,1),1);
+for i=1:size(namatrix,1)
+  for j=1:size(namatrix,2)  
+      namatrix(i,j)={[namatrix{i,j},' / ',vars{i}]};
+  end
+end
+
+R_diag = R(find(tril(ones(size(R)),-1)));
+P_diag = P(find(tril(ones(size(P)),-1)));
+namatrix_diag=namatrix(find(tril(ones(size(namatrix)),-1)));
+
+selection_index_diag=strfind(namatrix_diag,var_of_interest);
+selection_index_diag=~cellfun(@isempty,selection_index_diag);
+
+CorrelationResults_HR_max_pre=table(namatrix_diag(selection_index_diag),R_diag(selection_index_diag), P_diag(selection_index_diag),'VariableNames', {'Combi' 'r' 'p'})
+[B,index]=sort(CorrelationResults_HR_max_pre.p)
+CorrelationResults_HR_max_pre=CorrelationResults_HR_max_pre(index,:)
+
+
+end
