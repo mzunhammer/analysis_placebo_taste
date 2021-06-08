@@ -85,10 +85,7 @@ model_diagnostics(lm_pre_CPT_post_treat)
 lm_results_per_protocol=lm_main(dfw_c,'CPT_HR_max_change_from_BL_post~study+CPT_HR_max_change_from_BL_pre');
 z_lm_results_per_protocol=lm_main(dfw_c,'z_CPT_HR_max_change_from_BL_post~study+z_CPT_HR_max_change_from_BL_pre');
 
-% ALTERNATIVE ANALYSIS: Mean HR-response is a sub-optimal outcome choice,
-% as it is affected by the fact if participants aborted testing early or
-% not (which also ended the "clean" HR-measurement period)
-
+% ALTERNATIVE ANALYSIS: We could
 % GLM3b (MAIN 2): Did treatment group affect post-treatment HR-mean response to CPT?
 % lm_results_per_protocol_mean=lm_main(dfw_c,'CPT_HR_mean_change_from_BL_post~study+CPT_HR_mean_change_from_BL_pre');
 % z_lm_results_per_protocol_mean=lm_main(dfw_c,'z_CPT_mean_change_from_BL_post~study+z_CPT_mean_change_from_BL_pre');
