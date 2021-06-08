@@ -265,10 +265,6 @@ dfl1=table(subject_no,...
 dfl1.treat_efficacy(dfl1.treat=="0")=NaN;
 dfl1.taste_intensity(dfl1.treat=="0")=NaN;
 dfl1.taste_valence(dfl1.treat=="0")=NaN;
-
-dfl_c.treat_efficacy(dfl_c.treat=="0")=NaN;
-dfl_c.taste_intensity(dfl_c.treat=="0")=NaN;
-dfl_c.taste_valence(dfl_c.treat=="0")=NaN;
 %% Create long df (dfl) from raw imports (post-treatment ratings)
 subject_no=categorical(cellfun(@str2num,dfraw2.subIDs));
 
@@ -380,4 +376,21 @@ dfl.between_cpt_time=(dfl.time_post_treat_CPT-dfl.time_pre_treat_CPT)*24*60;
 dfl.lab_time_since_arrival(dfl.prepost=="1")=dfl.lab_time_before_pre_treat_CPT(dfl.prepost=="1");
 dfl.lab_time_since_arrival(dfl.prepost=="2")=dfl.lab_time_before_post_treat_CPT(dfl.prepost=="2");
 
-save df.mat dfl dfraw crf
+%% Add COMT Genetic data
+COMT_list_path='../data_placebo_taste/COMT_Genotyping_rs4680_Bingel_SchmerzGU.xlsx';
+[~, comtraw, ~] = xlsread(COMT_list_path);
+COMT_ID=cellfun(@(x) regexp(x,'^(\d+)','tokens'),comtraw(2:end,1));
+COMT_ID=categorical([COMT_ID{:}]');
+COMT_genotype=categorical(comtraw(2:end,5));
+COMT_genotype(~ismember(COMT_genotype,{'AG';'AA';'GG';'GA'}))='unknown';
+COMT_genotype=removecats(COMT_genotype);
+comt=table(COMT_ID,COMT_genotype);
+dfl=outerjoin(dfl,comt,'LeftKeys',{'subject_no'},'RightKeys',{'COMT_ID'});
+
+%% Add Questionnaire Data
+df_questionnaire=A4_Import_Questionnaire_Data('../data_placebo_taste/daten_GUpain.txt');
+dfl=outerjoin(dfl,df_questionnaire,...
+        'Type','left',...
+        'MergeKeys',false,...
+        'LeftKeys','subject_no','RightKeys','participant_no');
+save df.mat dfl dfraw crf df_questionnaire

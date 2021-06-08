@@ -36,6 +36,7 @@ analysis_side_effects(dfw_c);
 analysis_CPT(dfl_c,dfw_c,treatlabels,'temp_correct');
 analysis_explore_associations(dfw_c,dfw_c_pla) % to be revisited
 analysis_HR(dfl_c,dfw_c,treatlabels);
+analysis_COMT(dfl_c,dfw_c,treatlabels,'temp_correct');
 % analysis_BP(dfw_c,dfl_c) not yet completed
 
 % For pairwise testing of group differences:
